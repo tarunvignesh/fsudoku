@@ -10,6 +10,7 @@ class SudokuBrain {
   List<String> _input;
   List<String> rows;
   List<String> cols;
+  List<List<String>> blocks;
   final List<String> adigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   final List<String> aletters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
   List<String> digits;
@@ -40,6 +41,34 @@ class SudokuBrain {
   }
   List<String> getInputAsList() {
     return _input;
+  }
+
+  String getPosByXY(final int r, final int c) {
+    if (r > _nrows || c > _ncols)
+      throw ('Bad Coordinates to request board position $r,$c');
+
+    return rows[r] + cols[c];
+  }
+
+  bool isCorrectAt(final String pos, final String d) {
+    return boardDict[pos].length == 1 && boardDict[pos].first == d
+        ? true
+        : false;
+  }
+
+  int getBlockId(final int r, final int c) {
+    String pos = getPosByXY(r, c);
+    logger.i("POS IS $pos");
+    int i = 0;
+    for (List<String> p in blocks) {
+      if (p.contains(pos)) return i;
+      i++;
+    }
+    return -1;
+  }
+
+  List<String> getPossibleAt(final String pos) {
+    return boardDict[pos];
   }
 
   List<String> getSolution() {
@@ -82,13 +111,15 @@ class SudokuBrain {
         cb, (i) => cols.sublist(i * cb, (i * rb) + cb).join());
 
     logger.d("SQUARES IS $squares");
+    blocks = rBlock
+        .map((final String rs) => cBlock
+            .map((final String cs) => crossprod(rs.split(''), cs.split(''))))
+        .expand((var l) => l)
+        .toList();
+    int i = 0;
     unitlist = cols.map((final String c) => crossprod(rows, [c])).toList() +
         rows.map((final String r) => crossprod([r], cols)).toList() +
-        rBlock
-            .map((final String rs) => cBlock.map(
-                (final String cs) => crossprod(rs.split(''), cs.split(''))))
-            .expand((var l) => l)
-            .toList();
+        blocks;
 
     units = {
       for (var elem in squares)
@@ -303,7 +334,7 @@ class SudokuBrain {
   }
 }
 
-main() {
+main_() {
   Logger.level = Level.info;
 
   var gr =
