@@ -13,6 +13,9 @@ class SudokuApp extends StatefulWidget {
 
 class _SudokuState extends State<SudokuApp> {
 //class MyApp extends StatelessWidget {
+
+  SudokuBrain sb;
+
   @override
   Widget build(BuildContext context) {
     const textStyle = TextStyle(fontSize: 26);
@@ -46,14 +49,28 @@ class _SudokuState extends State<SudokuApp> {
 
   List<List<GridButtonItem>> loadPuzzle() {
     String inp = "2... 13..   ..3.  ...2";
+
     var nine_ =
         '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-    SudokuBrain sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
-    sb.solve();
-    List<String> inpL = sb.getSolution();
+    sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
+    //sb.solve();
+
+    List<String> inpL = nine_.split('');
+    if (sb.isSolved()) inpL = sb.getSolution();
     int idx = 0;
     Random random = new Random();
 
+    return List<List<GridButtonItem>>.generate(
+        sb.getNRows(),
+        (rC) => new List<GridButtonItem>.generate(
+            sb.getNCols(),
+            (cC) => new GridButtonItem(
+                  title: inpL[idx++],
+                  color: getColor(sb.getBlockId(rC, cC)),
+                )));
+  }
+
+  Color getColor(final int idx) {
     final List clrs = [
       Colors.lightGreen,
       Colors.lightBlue,
@@ -66,11 +83,6 @@ class _SudokuState extends State<SudokuApp> {
       Colors.white,
       Colors.orangeAccent,
     ];
-    return List<List<GridButtonItem>>.generate(
-        sb.getNRows(),
-        (rC) => new List<GridButtonItem>.generate(
-            sb.getNCols(),
-            (cC) => new GridButtonItem(
-                title: inpL[idx++], color: clrs[sb.getBlockId(rC, cC)])));
+    return (idx % 2 == 0) ? Colors.white : Colors.lightBlueAccent;
   }
 }
