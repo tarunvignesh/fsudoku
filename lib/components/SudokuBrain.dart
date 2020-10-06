@@ -43,6 +43,22 @@ class SudokuBrain {
     return _input;
   }
 
+  String getValAtIndex(final int i) {
+    if (i >= _nrows * _ncols || i < 0)
+      throw ('Bad index $i for current $_nrows X $_ncols grid');
+
+    String pos = getPosByIndex(i);
+    return boardDict[pos].length > 1
+        ? '[' + boardDict[pos].join(',') + ']'
+        : boardDict[pos].first;
+  }
+
+  String getPosByIndex(final int i) {
+    if (i >= _nrows * _ncols || i < 0)
+      throw ('Bad index $i for current $_nrows X $_ncols grid');
+    return rows[(i / _nrows).floor()] + cols[i % _ncols];
+  }
+
   String getPosByXY(final int r, final int c) {
     if (r > _nrows || c > _ncols)
       throw ('Bad Coordinates to request board position $r,$c');
@@ -54,6 +70,17 @@ class SudokuBrain {
     return boardDict[pos].length == 1 && boardDict[pos].first == d
         ? true
         : false;
+  }
+
+  int getBlockIdByIndex(final int idx) {
+    String pos = getPosByIndex(idx);
+
+    int i = 0;
+    for (List<String> p in blocks) {
+      if (p.contains(pos)) return i;
+      i++;
+    }
+    return -1;
   }
 
   int getBlockId(final int r, final int c) {
