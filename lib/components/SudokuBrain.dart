@@ -2,6 +2,15 @@ import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
 
+class SCell {
+  String position;
+  String value;
+  SCell(this.position, this.value);
+  bool operator ==(o) =>
+      o is SCell && this.position == o.position && this.value == o.value;
+  int get hashCode => position.hashCode ^ value.hashCode;
+}
+
 class SudokuBrain {
   int _nrows = 0;
   int _ncols = 0;
@@ -11,10 +20,12 @@ class SudokuBrain {
   List<String> rows;
   List<String> cols;
   List<List<String>> blocks;
+  List<SCell> movesList = List<SCell>();
   final List<String> adigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   final List<String> aletters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
   List<String> digits;
   Map<String, List<String>> boardDict;
+  Map<String, String> puzzleBoard;
   var logger = Logger(
     printer: PrettyPrinter(),
   );
@@ -43,14 +54,44 @@ class SudokuBrain {
     return _input;
   }
 
+  void undo() {
+    if (movesList.isEmpty) return;
+    SCell l = movesList.last;
+    movesList.remove(l);
+    // find last value
+    SCell prevE = movesList.lastWhere(
+        (element) => element.position == l.position,
+        orElse: () => new SCell(l.position, "."));
+    puzzleBoard[prevE.position] = prevE.value;
+  }
+
+  void setValAt(final String pos, final String val) {
+    SCell s = new SCell(pos, val);
+    if (movesList.contains(s) == false) movesList.add(s);
+
+    puzzleBoard[pos] = val;
+  }
+
+  bool haveUndos() {
+    return movesList.isNotEmpty;
+  }
+
+  bool isInInput(final int idx, final String val) {
+    var v = _input[idx];
+    logger.i("IS INPUT OF $idx for val $val->$v");
+    return cols.contains(_input[idx]) && _input[idx] == val;
+  }
+
   String getValAtIndex(final int i) {
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
 
     String pos = getPosByIndex(i);
-    return boardDict[pos].length > 1
-        ? '[' + boardDict[pos].join(',') + ']'
-        : boardDict[pos].first;
+    // return boardDict[pos].length > 1
+    //     ? '[' + boardDict[pos].join(',') + ']'
+    //     : boardDict[pos].first;
+
+    return puzzleBoard[pos];
   }
 
   String getPosByIndex(final int i) {
@@ -187,6 +228,8 @@ class SudokuBrain {
       throw 'Bad grid input. Num entries is ${chars.length}';
     int idx = 0;
     Map<String, String> m = {for (var elem in squares) elem: chars[idx++]};
+    puzzleBoard = m.map((key, value) => MapEntry(key, value));
+
     return m;
   }
 

@@ -6,8 +6,9 @@ class SudokuCell {
   String pos;
   String val;
   Color clr;
+  Color tClr;
 
-  SudokuCell(this.index, this.pos, this.val, this.clr);
+  SudokuCell(this.index, this.pos, this.val, this.clr, this.tClr);
 }
 
 void main() => runApp(SudokuApp());
@@ -23,7 +24,8 @@ class _SudokuAppState extends State<SudokuApp> {
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
   @override
   Widget build(BuildContext context) {
-    sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
+    // sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
+    sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
     sb.solve();
 
     return MaterialApp(
@@ -59,7 +61,10 @@ class _SudokuAppState extends State<SudokuApp> {
                                 index,
                                 sb.getPosByIndex(index),
                                 sb.getValAtIndex(index),
-                                getColor(sb.getBlockIdByIndex(index))),
+                                getColor(sb.getBlockIdByIndex(index)),
+                                sb.isInInput(index, sb.getValAtIndex(index))
+                                    ? Colors.red
+                                    : Colors.black),
                             nGrid: sb.getNRows());
                   })),
             ),
@@ -109,6 +114,10 @@ class _MyHomePageState extends State<MyHomePage> {
     _numOpt = n;
   }
   void _showCustomMenu() {
+    // Let us show the pop up menu ONLY if the cell is fillable i.e
+    // - It is empty OR
+    // - Not already  specified in input
+    if (sb.isInInput(_cell.index, _cell.val)) return;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
 
     showMenu(
@@ -120,13 +129,19 @@ class _MyHomePageState extends State<MyHomePage> {
                 Offset.zero & overlay.size // Bigger rect, the entire screen
                 ))
         // This is how you handle user selection
-        .then<void>((String delta) {
+        .then<void>((String gval) {
       // delta would be null if user taps on outside the popup menu
       // (causing it to close without making selection)
-      if (delta == null) return;
+      if (gval == null) return;
 
       setState(() {
-        _cell.val = delta;
+        if (gval == 'X') {
+          sb.undo();
+          _cell.val = sb.getValAtIndex(_cell.index);
+        } else {
+          sb.setValAt(_cell.pos, gval);
+          _cell.val = gval;
+        }
       });
     });
 
@@ -156,7 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
           children: <Widget>[
             GestureDetector(
               // This does not give the tap position ...
-              onLongPress: _showCustomMenu,
+
               onTap: _showCustomMenu,
               // Have to remember it on tap-down.
               onTapDown: _storePosition,
@@ -169,8 +184,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       //  padding: const EdgeInsets.all(10.0),
                       child: Text(
                         _cell.val,
-                        style: const TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: _cell.tClr),
                       ),
                     ),
                   ),
@@ -213,13 +230,17 @@ class PlusMinusEntryState extends State<PlusMinusEntry> {
 
   List<Expanded> retChildren() {
     return new List<Expanded>.generate(
-        nrows,
-        (index) => new Expanded(
-                child: FlatButton(
-              onPressed: () {
-                Navigator.pop(context, (index + 1).toString());
-              },
-              child: Text((index + 1).toString()),
-            )));
+        nrows, (index) => newPopupCell((index + 1).toString()))
+      ..add(newPopupCell('?'))
+      ..add(newPopupCell('X'));
+  }
+
+  Expanded newPopupCell(final String s) {
+    return new Expanded(
+        child: FlatButton(
+            onPressed: () {
+              Navigator.pop(context, s);
+            },
+            child: Text(s)));
   }
 }
