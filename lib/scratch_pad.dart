@@ -20,14 +20,37 @@ class SudokuApp extends StatefulWidget {
 
 class _SudokuAppState extends State<SudokuApp> {
   SudokuBrain sb;
-  var nine_ =
-      '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
+  List<MyHomePage> ScreenGrid = List<MyHomePage>();
+  String nine_;
+
   @override
-  Widget build(BuildContext context) {
-    // sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
-    sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  void initState() {
+    nine_ =
+        '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
+    sb = new SudokuBrain(r: 9, c: 9, grid: nine_);
     sb.solve();
 
+    ScreenGrid = List.generate(sb.getNRows() * sb.getNCols(), (index) {
+      return new MyHomePage(
+          title: 'Popup Menu Usage',
+          sb: sb,
+          cell: new SudokuCell(
+              index,
+              sb.getPosByIndex(index),
+              sb.getValAtIndex(index),
+              getColor(sb.getBlockIdByIndex(index)),
+              sb.isInInput(index, sb.getValAtIndex(index))
+                  ? Colors.blue
+                  : Colors.black),
+          nGrid: sb.getNRows());
+    });
+    //  sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Popup Menu Usage',
       theme: ThemeData(
@@ -40,38 +63,31 @@ class _SudokuAppState extends State<SudokuApp> {
           body: AspectRatio(
             aspectRatio: 1.0,
             child: Container(
-              padding: const EdgeInsets.all(8.0),
-              margin: const EdgeInsets.all(8.0),
-              decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black, width: 2.0)),
+              // padding: const EdgeInsets.all(8.0),
+              // margin: const EdgeInsets.all(8.0),
+              // decoration: BoxDecoration(
+              //     border: Border.all(color: Colors.black, width: 2.0)),
               child: GridView.count(
                   crossAxisCount: sb.getNRows(),
-
+                  //  padding: const EdgeInsets.all(20),
+                  crossAxisSpacing: 5,
+                  mainAxisSpacing: 5,
                   // Generate 100 widgets that display their index in the List.
-                  children:
-                      List.generate(sb.getNRows() * sb.getNCols(), (index) {
-                    return new
-                        // Text(
-                        //   index.toString(),
-                        //   style: Theme.of(context).textTheme.headline5,
-                        MyHomePage(
-                            title: 'Popup Menu Usage',
-                            sb: sb,
-                            cell: new SudokuCell(
-                                index,
-                                sb.getPosByIndex(index),
-                                sb.getValAtIndex(index),
-                                getColor(sb.getBlockIdByIndex(index)),
-                                sb.isInInput(index, sb.getValAtIndex(index))
-                                    ? Colors.red
-                                    : Colors.black),
-                            nGrid: sb.getNRows());
-                  })),
+                  children: ScreenGrid),
             ),
           )
           //    body: MyHomePage(title: 'Popup Menu Usage', num: 1, nGrid: 9)
           ),
     );
+  }
+
+  void reRenderPuzzle(final SudokuCell c) {
+    //highlight peers
+    List<String> peersList = sb.getPeers(c.pos);
+    ScreenGrid.forEach((element) {
+      if (peersList.contains(element.cell.pos))
+        element.cell.clr = Colors.lightGreen;
+    });
   }
 
   Color getColor(final int idx) {
@@ -87,15 +103,17 @@ class _SudokuAppState extends State<SudokuApp> {
       Colors.white,
       Colors.orangeAccent,
     ];
-    return (idx % 2 == 0) ? Colors.grey : Colors.white;
+    return (idx % 2 == 0) ? Colors.grey : Colors.black12;
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title, this.sb, this.cell, this.nGrid})
+  MyHomePage(
+      {Key key, this.parentCb, this.title, this.sb, this.cell, this.nGrid})
       : super(key: key);
 
   final String title;
+  Function parentCb;
   SudokuBrain sb;
   SudokuCell cell;
   int nGrid;
@@ -176,19 +194,17 @@ class _MyHomePageState extends State<MyHomePage> {
               // Have to remember it on tap-down.
               onTapDown: _storePosition,
 
-              child: GridTile(
-                child: Container(
-                  color: _cell.clr,
-                  child: Center(
-                    child: Container(
-                      //  padding: const EdgeInsets.all(10.0),
-                      child: Text(
-                        _cell.val,
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: _cell.tClr),
-                      ),
+              child: Container(
+                color: _cell.clr,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(5.0),
+                    child: Text(
+                      _cell.val,
+                      style: TextStyle(
+                          fontSize: 23,
+                          fontWeight: FontWeight.bold,
+                          color: _cell.tClr),
                     ),
                   ),
                 ),

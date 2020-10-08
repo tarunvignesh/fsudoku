@@ -94,6 +94,10 @@ class SudokuBrain {
     return puzzleBoard[pos];
   }
 
+  List<String> getPeers(final String pos) {
+    return peers[pos];
+  }
+
   String getPosByIndex(final int i) {
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
