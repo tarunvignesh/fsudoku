@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sudoku/components/SudokuBrain.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
 
 class SudokuCell {
@@ -14,25 +15,21 @@ class SudokuCell {
 
 class MyHomePage extends StatefulWidget {
   MyHomePage(
-      {Key key, this.parentCb, this.title, this.sb, this.cell, this.nGrid})
+      {Key key, this.title,this.cell, this.nGrid})
       : super(key: key);
 
   final String title;
-  Function parentCb;
-  SudokuBrain sb;
   SudokuCell cell;
   int nGrid;
   @override
-  _MyHomePageState createState() => _MyHomePageState(sb, cell, nGrid);
+  _MyHomePageState createState() => _MyHomePageState( cell, nGrid);
 }
 
 class _MyHomePageState extends State<MyHomePage> {
   SudokuCell _cell;
   int _numOpt = 0;
   var _tapPosition;
-  SudokuBrain sb;
-  _MyHomePageState(SudokuBrain s, final SudokuCell sc, final int n) {
-    sb = s;
+  _MyHomePageState( final SudokuCell sc, final int n) {
     _cell = sc;
     _numOpt = n;
   }
@@ -40,7 +37,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // Let us show the pop up menu ONLY if the cell is fillable i.e
     // - It is empty OR
     // - Not already  specified in input
-    if (sb.isInInput(_cell.index, _cell.val)) return;
+    if (context.read<SudokuBoard>().sb.isInInput(_cell.index, _cell.val)) return;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
 
     showMenu(
@@ -59,12 +56,14 @@ class _MyHomePageState extends State<MyHomePage> {
 
       setState(() {
         if (gval == 'X') {
-          sb.undo();
-          _cell.val = sb.getValAtIndex(_cell.index);
+          context.read<SudokuBoard>().sb.undo();
+          _cell.val = context.read<SudokuBoard>().sb.getValAtIndex(_cell.index);
         } else {
-          sb.setValAt(_cell.pos, gval);
+          context.read<SudokuBoard>().sb.setValAt(_cell.pos, gval);
           _cell.val = gval;
         }
+
+        context.read<SudokuBoard>().highlightPeers(_cell);
       });
     });
 
@@ -122,57 +121,24 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 class SudokuBoard   with ChangeNotifier{
-   int _nrows =0;
-   int _ncols = 0;
+
+  int _nrows  ;
+   int _ncols ;
    String _input = "";
-   SudokuBrain sb ;
-   List<MyHomePage> _ScreenGrid;
+   SudokuBrain _sb ;
+
+   SudokuBrain get sb => _sb;
+  List<MyHomePage> _ScreenGrid;
 
    List<MyHomePage> get ScreenGrid => _ScreenGrid;
 
    String get input => _input;
 
    SudokuBoard(this._ncols,this._nrows,this._input) {
-     sb = new SudokuBrain(r: _nrows, c: _ncols, grid: _input);
-     setupScreenGrid();
+     _sb = new SudokuBrain(r: _nrows, c: _ncols, grid: _input);
      sb.solve();
 
-   }
-     void setupScreenGrid() {
-       _ScreenGrid = List.generate(sb.getNRows() * sb.getNCols(), (index) {
-         return new MyHomePage(
-             title: 'Popup Menu Usage',
-             sb: sb,
-             cell: new SudokuCell(
-                 index,
-                 sb.getPosByIndex(index),
-                 sb.getValAtIndex(index),
-                 getColor(sb.getBlockIdByIndex(index)),
-                 sb.isInInput(index, sb.getValAtIndex(index))
-                     ? Colors.blue
-                     : Colors.black),
-             nGrid: sb.getNRows());
-
-
-       });
-     }
-      void reset() {
-        sb.reset();
-
-        setupScreenGrid();
-
-        notifyListeners();
-
-      }
-      void highlightPeers( final SudokuCell c) {
-        List<String> peersList = sb.getPeers(c.pos);
-        ScreenGrid.forEach((element) {
-          if (peersList.contains(element.cell.pos))
-            element.cell.clr = Colors.lightGreen;
-        });
-        notifyListeners();
-      }
-
+   //  setupScreenGrid();
 
    }
 
@@ -191,9 +157,62 @@ class SudokuBoard   with ChangeNotifier{
      ];
      return (idx % 2 == 0) ? Colors.grey : Colors.black12;
    }
+     void setupScreenGrid() {
+       _ScreenGrid = List.generate(_sb.getNRows() * _sb.getNCols(), (index) {
+         return new MyHomePage(
+             title: 'Popup Menu Usage',
+             cell: new SudokuCell(
+                 index,
+                 _sb.getPosByIndex(index),
+                 _sb.getValAtIndex(index),
+                 getColor(_sb.getBlockIdByIndex(index)),
+                 _sb.isInInput(index, _sb.getValAtIndex(index))
+                     ? Colors.blue
+                     : Colors.black),
+             nGrid: _nrows);
+
+
+       });
+     }
+      void reset() {
+        _sb.reset();
+
+        setupScreenGrid();
+
+        notifyListeners();
+
+      }
+      void highlightPeers( final SudokuCell c) {
+        List<String> peersList = _sb.getPeers(c.pos);
+        ScreenGrid.forEach((element) {
+          if (peersList.contains(element.cell.pos))
+            element.cell.clr = Colors.lightGreen;
+        });
+        notifyListeners();
+      }
+
+   int get nrows => _nrows;
+
+   int get ncols => _ncols;
+
+
 }
+
+
+
+void main() {
+  String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
+  SudokuBoard board = new  SudokuBoard(9, 9, nine_)..setupScreenGrid();
+  runApp (
+    MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => board ),
+        ],child: SudokuApp()
+
+),
+
+);
 }
-void main() => runApp (SudokuApp());
 
 class SudokuApp extends StatefulWidget {
   @override
@@ -201,18 +220,10 @@ class SudokuApp extends StatefulWidget {
 }
 
 class _SudokuAppState extends State<SudokuApp> {
-  SudokuBrain sb;
   List<MyHomePage> ScreenGrid = List<MyHomePage>();
-  String nine_;
 
   @override
   void initState() {
-    nine_ =
-        '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-
-
-
-
     //  sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
 
     super.initState();
@@ -220,49 +231,42 @@ class _SudokuAppState extends State<SudokuApp> {
 
   @override
   Widget build(BuildContext context) {
-
-
     return MaterialApp(
-
-
       title: 'Popup Menu Usage',
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
       home: Scaffold(
-          appBar: AppBar(
-            title: Text('Sudoku'),
-          ),
-          body: AspectRatio(
+        appBar: AppBar(
+          title: Text('Sudoku'),
+        ),
+        body: AspectRatio(
             aspectRatio: 1.0,
-            child:  MultiProvider(
-                providers: [
-                 ChangeNotifierProvider(create: (_) => SudokuBoard(9, 9, _input)),
-              ],
-              child: Container(
-                // padding: const EdgeInsets.all(8.0),
-                // margin: const EdgeInsets.all(8.0),
-                // decoration: BoxDecoration(
-                //     border: Border.all(color: Colors.black, width: 2.0)),
-                child: GridView.count(
-                    crossAxisCount: sb.getNRows(),
-                    //  padding: const EdgeInsets.all(20),
-                    crossAxisSpacing: 5,
-                    mainAxisSpacing: 5,
-                    children: '${context.watch<SudokuBoard>().ScreenGrid}';
+            child: Container(
+              // padding: const EdgeInsets.all(8.0),
+              // margin: const EdgeInsets.all(8.0),
+              // decoration: BoxDecoration(
+              //     border: Border.all(color: Colors.black, width: 2.0)),
+              child: GridView.count(
+                  crossAxisCount: context
+                      .watch<SudokuBoard>()
+                      .sb.getNRows(),
+                  //  padding: const EdgeInsets.all(20),
+                  crossAxisSpacing: 5,
+                  mainAxisSpacing: 5,
+                  children: context
+                      .watch<SudokuBoard>()
+                      .ScreenGrid
               ),
-          ),
             )
           //    body: MyHomePage(title: 'Popup Menu Usage', num: 1, nGrid: 9)
-          ),
+        ),
+      ),
     );
   }
 
-  void reRenderPuzzle(final SudokuCell c) {
-    //highlight peers
 
-  }
-
+}
 
 
 
@@ -293,7 +297,14 @@ class PlusMinusEntryState extends State<PlusMinusEntry> {
   Widget build(BuildContext context) {
     return Row(children: retChildren());
   }
-
+  Expanded newPopupCell(final String s) {
+  return new Expanded(
+  child: FlatButton(
+  onPressed: () {
+  Navigator.pop(context, s);
+  },
+  child: Text(s)));
+  }
   List<Expanded> retChildren() {
     return new List<Expanded>.generate(
         nrows, (index) => newPopupCell((index + 1).toString()))
@@ -301,12 +312,5 @@ class PlusMinusEntryState extends State<PlusMinusEntry> {
       ..add(newPopupCell('X'));
   }
 
-  Expanded newPopupCell(final String s) {
-    return new Expanded(
-        child: FlatButton(
-            onPressed: () {
-              Navigator.pop(context, s);
-            },
-            child: Text(s)));
-  }
+
 }
