@@ -34,7 +34,7 @@ class SudokuBrain {
   );
   List<List<String>> unitlist;
   Map<String, List<List<String>>> units;
-  var peers;
+  var  peers;
   List<String> squares;
   SudokuBrain({int r, int c, String grid}) {
     _input = grid
@@ -83,18 +83,17 @@ class SudokuBrain {
   }
 
   String getValAtIndex(final int i) {
+    logger.i("GETTING VAL AT IDX $i");
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
 
     String pos = getPosByIndex(i);
-    // return boardDict[pos].length > 1
-    //     ? '[' + boardDict[pos].join(',') + ']'
-    //     : boardDict[pos].first;
-
+    logger.i("POS IS $pos  at $puzzleBoard[pos]");
     return puzzleBoard[pos];
   }
 
-  List<String> getPeers(final String pos) {
+  Set<String> getPeers(final String pos) {
+    logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
     return peers[pos];
   }
 
@@ -103,7 +102,9 @@ class SudokuBrain {
       throw ('Bad index $i for current $_nrows X $_ncols grid');
     return rows[(i / _nrows).floor()] + cols[i % _ncols];
   }
-
+  bool isValidDigitOnGrid(final String v) {
+    return digits.contains(v);
+  }
   String getPosByXY(final int r, final int c) {
     if (r > _nrows || c > _ncols)
       throw ('Bad Coordinates to request board position $r,$c');
@@ -223,6 +224,7 @@ class SudokuBrain {
   }
 
   Map<String, String> grid_values() {
+    logger.i("IN GRIDVALUES()");
     List<String> chars = _input
         .map((c) => digits.contains(c) || ['.', '0'].contains(c)
             ? c
@@ -383,7 +385,12 @@ class SudokuBrain {
     boardDict = search(parse_grid());
     return boardDict;
   }
+ void reset() {
+    boardDict.clear();
+    puzzleBoard.clear();
+    movesList.clear();
 
+ }
   Map<String, List<String>> search(Map<String, List<String>> values) {
     loggerNoStack.v("SEARCHING  $values");
     if (values == null || values.isEmpty) return null;
