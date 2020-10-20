@@ -78,22 +78,22 @@ class SudokuBrain {
 
   bool isInInput(final int idx, final String val) {
     var v = _input[idx];
-    logger.i("IS INPUT OF $idx for val $val->$v");
+  //  logger.i("IS INPUT OF $idx for val $val->$v");
     return cols.contains(_input[idx]) && _input[idx] == val;
   }
 
   String getValAtIndex(final int i) {
-    logger.i("GETTING VAL AT IDX $i");
+   // logger.i("GETTING VAL AT IDX $i");
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
 
     String pos = getPosByIndex(i);
-    logger.i("POS IS $pos  at $puzzleBoard[pos]");
+  //  logger.i("POS IS $pos  at $puzzleBoard[pos]");
     return puzzleBoard[pos];
   }
 
   Set<String> getPeers(final String pos) {
-    logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
+   // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
     return peers[pos];
   }
 
@@ -131,7 +131,7 @@ class SudokuBrain {
 
   int getBlockId(final int r, final int c) {
     String pos = getPosByXY(r, c);
-    logger.i("POS IS $pos");
+   // logger.i("POS IS $pos");
     int i = 0;
     for (List<String> p in blocks) {
       if (p.contains(pos)) return i;
