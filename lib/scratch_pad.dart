@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:sudoku/components/SudokuBrain.dart';
 import 'package:provider/provider.dart';
@@ -20,8 +21,7 @@ class SudokuCell {
 void main() {
   Logger.level = Level.info;
 
-  String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  // SudokuBoard board = new  SudokuBoard(9, 9, nine_)..setupScreenGrid();
+
 runApp(SudokuApp());
 }
 
@@ -31,8 +31,13 @@ class SudokuApp extends StatefulWidget {
 }
 
 class _SudokuAppState extends State<SudokuApp> {
-  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
+  // SudokuBoard board = new  SudokuBoard(9, 9, nine_)..setupScreenGrid();
+ SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+//  SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+
   List<SudokuCell> _ScreenGrid ;
+  GlobalKey _gk  = GlobalKey();
   var _tapPosition;
 
   // List<MyHomePage> ScreenGrid = List<MyHomePage>();
@@ -48,23 +53,37 @@ class _SudokuAppState extends State<SudokuApp> {
     super.initState();
   }
   void highlightPeers(  SudokuCell c) {
+
     //   getSolvedGrid();
-   logger.i("HIGHLIGHTING PEERS FOR ${c.pos}");
-    Set<String> peersList = _sb.getPeers(c.pos);
-    _ScreenGrid.forEach((cell) {
-      if (peersList.contains(cell.pos)) {
-        logger.i("CHANGING OPACITY OF ${cell.pos}");
-        cell.opacity = 0.2 ;
+   setState(() {
+     logger.i("HIGHLIGHTING PEERS FOR ${c.pos}");
+     Set<String> peersList = _sb.getPeers(c.pos);
+     _ScreenGrid.forEach((cell) {
+       if (peersList.contains(cell.pos)) {
+         logger.i("CHANGING OPACITY OF ${cell.pos}");
+         cell.opacity = 0.2 ;
 
-      } else
-        cell.opacity = 1.0;
+       } else
+         cell.opacity = 1.0;
 
-    });
-    c.opacity = 0.3;
+     });
+     c.opacity = 0.3;
+   });
+
    // _ScreenGrid = tlist;
   //  notifyListeners();
 
   }
+  void clearHighLights() {
+    setState(() {
+    _ScreenGrid.forEach((cell) {
+      cell.opacity = 1;
+    });
+
+    });
+  }
+
+
 
   void highlightCorrect(SudokuCell c) {
     if (_sb.isValidDigitOnGrid(c.val) == false)
@@ -90,16 +109,18 @@ class _SudokuAppState extends State<SudokuApp> {
       Colors.white,
       Colors.orangeAccent,
     ];
-    return (idx % 2 == 0) ? Colors.grey : Colors.black12;
+    return (idx % 2 == 0) ? Colors.brown : Colors.deepOrange;
   }
   void _showCustomMenu( SudokuCell _cell) {
     // Let us show the pop up menu ONLY if the cell is fillable i.e
     // - It is empty OR
     // - Not already  specified in input
+    logger.i("IN SHOW CUSTOM!!");
 
     if (_sb.isInInput(_cell.index, _cell.val)) return;
+    BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
-
+     logger.i(" AFTER RENDERBOX!!");
     showMenu(
         context: context,
         items: <PopupMenuEntry<String>>[PlusMinusEntry(_sb.getNRows())],
@@ -122,6 +143,7 @@ class _SudokuAppState extends State<SudokuApp> {
          _sb.setValAt(_cell.pos, gval);
           _cell.val = gval;
         }
+        highlightCorrect(_cell);
       //  context.read<SudokuBoard>().highlightCorrect(_cell);
       });
     });
@@ -141,32 +163,33 @@ class _SudokuAppState extends State<SudokuApp> {
   }
 
   Widget buildSquare( SudokuCell _cell) {
-    return Center(
+    return GridTile(
       child: AnimatedOpacity(
         opacity: _cell.opacity,
-        curve: Curves.bounceIn,
-        duration: Duration(seconds: 2),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
+        curve: Curves.easeInCirc,
+        duration: Duration(seconds: 1),
+        child:
+       //   children: <Widget>[
             GestureDetector(
 
-              onLongPress: () => _changeOpacity(_cell),
+              onTapDown: (TapDownDetails d) { _storePosition(d) ; _showCustomMenu(_cell); highlightPeers(_cell); } ,
+              onTapUp: (TapUpDetails t) => clearHighLights() ,
+
               // This does not give the tap position ...
-              onTap: () => highlightPeers(_cell),
+            //  onTap: () => _showCustomMenu(_cell) ,
         //_showCustomMenu(_cell),
               // Have to remember it on tap-down.
-              onTapDown: _storePosition,
+          //    onTapDown: _storePosition,
 
               child: Container(
                 color: _cell.clr,
                 child: Center(
                   child: Container(
-                    padding: const EdgeInsets.all(5.0),
+                //    padding: const EdgeInsets.all(5.0),
                     child: Text(
                       _cell.val,
                       style: TextStyle(
-                          fontSize: 23,
+                          fontSize: 25,
                           fontWeight: FontWeight.bold,
                           color: _cell.tClr),
                     ),
@@ -174,9 +197,7 @@ class _SudokuAppState extends State<SudokuApp> {
                 ),
               ),
             ),
-          ],
         ),
-      ),
     );
 
   }
@@ -216,7 +237,7 @@ void initGrid(){
   }
   void _changeOpacity(SudokuCell _cell) {
     setState(() =>
-      _cell.opacity = 0.6
+      _cell.opacity = 0.8
 
     );
   }
@@ -234,23 +255,27 @@ void initGrid(){
         appBar: AppBar(
           title: Text('Sudoku'),
         ),
-        body: AspectRatio(
-            aspectRatio: 1.0,
-            child: Container(
-              // padding: const EdgeInsets.all(8.0),
-              // margin: const EdgeInsets.all(8.0),
+        body: Container(
+
+         //   aspectRatio: 1,
+            key:_gk,
+            //  color: Colors.indigoAccent,
+               padding: const EdgeInsets.all(2.0),
+               margin: const EdgeInsets.all(4.0),
               // decoration: BoxDecoration(
               //     border: Border.all(color: Colors.black, width: 2.0)),
               child: GridView.count(
                   crossAxisCount: _sb.getNRows()
-
                   ,
-                  //  padding: const EdgeInsets.all(20),
+               //   padding: const EdgeInsets.all(20),
                   crossAxisSpacing: 5,
                   mainAxisSpacing: 5,
+                  childAspectRatio: 1,
+               //   mainAxisSpacing: 3.0,
+            //     crossAxisSpacing: 3.0,
+        //          shrinkWrap: true,
                   children:  setupScreenGrid()
               ),
-            )
           //    body: MyHomePage(title: 'Popup Menu Usage', num: 1, nGrid: 9)
         ),
       ),
