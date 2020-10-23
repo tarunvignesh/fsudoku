@@ -32,10 +32,21 @@ class SudokuApp extends StatefulWidget {
 
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
- // SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+ //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid ;
+  // Assisted mode -> Display only possible values in the pop up menu
+  // Animate cells
+  // Timer
+  // Track mistakes
+  // Home page with  Grid SIZE
+  // Animated transtions
+  // Feedback on mistakes , time up.
+  // Proper icons for undo ,
+  // Show why wrong by highlinting conflict
+  // Enter your number?
+
   GlobalKey _gk  = GlobalKey();
   var _tapPosition;
 
@@ -173,9 +184,9 @@ SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
          //   children: <Widget>[
               GestureDetector(
               //    debugPaintPointersEnabled:true,
-                  onTapDown: (TapDownDetails d) { _storePosition(d) ; _showCustomMenu(_cell); highlightPeers(_cell); } ,
-                onTapUp: (TapUpDetails t) => clearHighLights() ,
-
+                  onTapDown: (TapDownDetails d) { _storePosition(d) ; highlightPeers(_cell); } ,
+               // onTapUp: (TapUpDetails t) => clearHighLights() ,
+                onLongPress: ()=>  _showCustomMenu(_cell),
                 // This does not give the tap position ...
               //  onTap: () => _showCustomMenu(_cell) ,
           //_showCustomMenu(_cell),
@@ -259,7 +270,7 @@ void initGrid(){
   }
   void _changeOpacity(SudokuCell _cell) {
     setState(() =>
-      _cell.opacity = 0.8
+      _cell.opacity = 0.3
 
     );
   }
@@ -277,36 +288,86 @@ void initGrid(){
         appBar: AppBar(
           title: Text('Sudoku'),
         ),
-        body: Container(
-          decoration: const BoxDecoration(color: Colors.teal),
-         // height: double.infinity,
-         // width: double.infinity,
-            key:_gk,
-            //  color: Colors.indigoAccent,
-              padding: const EdgeInsets.all(1.0),
-               margin: const EdgeInsets.all(4.0),
-              // decoration: BoxDecoration(
-              //     border: Border.all(color: Colors.black, width: 2.0)),
-
-
-              child: CustomScrollView(
-                  primary: false,
-                  slivers: <Widget>[
-              SliverPadding(
-              padding: const EdgeInsets.all(4),
-          sliver: SliverGrid.count(
-
-              crossAxisSpacing: 2,
-              mainAxisSpacing: 2,
-              crossAxisCount: _sb.getNRows(),
-                  children:  setupScreenGrid()
-              ),
+        body:
+           SafeArea(
+             child: Column(
+              children: <Widget> [
+                Expanded(
+                  flex : 0,
+                    child: Row(
+             children: <Widget>[
+               Expanded(
+                   flex : 3,
+               child:
+               Card(
+          shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.0),
         ),
-      ],
-              )
-    ),
+        color: Colors.pink,
+        elevation: 5,
+
+          child: const ListTile(
+          leading: Icon(Icons.access_time),
+          title: Text('Timer ', style: TextStyle(color: Colors.white)),
+          subtitle: Text('TWICE', style: TextStyle(color: Colors.white)),
+      ))),        Expanded(
+                   flex : 3,
+                   child:
+                   Card(
+                       shape: RoundedRectangleBorder(
+                         borderRadius: BorderRadius.circular(15.0),
+                       ),
+                       color: Colors.blue,
+                       elevation: 5,
+
+                       child: const ListTile(
+                         leading: Icon(Icons.alternate_email_rounded),
+                         title: Text('Score', style: TextStyle(color: Colors.white)),
+                         subtitle: Text('TWICE', style: TextStyle(color: Colors.white)),
+                       )))
+
+           ]) )  ,
+               Expanded(
+              flex:8,
+                 child: Card(
+                   shape: RoundedRectangleBorder(
+                       borderRadius: BorderRadius.circular(15.0)),
+                     color: Colors.black87,
+                     elevation: 5,
+                  //  decoration: const BoxDecoration(color: Colors.teal),
+                   // height: double.infinity,
+                   // width: double.infinity,
+                      key:_gk,
+                      //  color: Colors.indigoAccent,
+                    //    padding: const EdgeInsets.all(1.0),
+                      //   margin: const EdgeInsets.all(4.0),
+                        // decoration: BoxDecoration(
+                        //     border: Border.all(color: Colors.black, width: 2.0)),
+
+
+                        child: CustomScrollView(
+                            primary: false,
+                            slivers: <Widget>[
+                        SliverPadding(
+                        padding: const EdgeInsets.all(4),
+                    sliver: SliverGrid.count(
+
+                        crossAxisSpacing: 2,
+                        mainAxisSpacing: 2,
+                        crossAxisCount: _sb.getNRows(),
+                            children:  setupScreenGrid()
+                        ),
+                  ),]
+      )
+        ),
+               ),
+
+          ],
+        ),
+           ),
     ),
     );
+
   }
 }
 
