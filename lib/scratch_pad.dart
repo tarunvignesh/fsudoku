@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:sudoku/components/SudokuBrain.dart';
 import 'dart:math';
 import 'package:logger/logger.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:fab_circular_menu/fab_circular_menu.dart';
 
 
 class SudokuCell {
@@ -16,7 +16,13 @@ class SudokuCell {
 
   SudokuCell(this.index, this.pos, this.val, this.clr, this.tClr,this.opacity);
 }
+class PuzzleBoard {
 
+  int _movesCorrect = 0;
+  int _movesWrong = 0;
+  int _puzzleDifficulty = 0;
+
+}
 
 void main() {
   Logger.level = Level.info;
@@ -275,6 +281,16 @@ void initGrid(){
     );
   }
 
+      void reset() {
+    _ScreenGrid.clear();
+        _sb.reset();
+
+initGrid();
+
+
+
+      }
+
   @override
   Widget build(BuildContext context) {
     logger.i("BUILD CALLED!!");
@@ -332,7 +348,7 @@ void initGrid(){
                  child: Card(
                    shape: RoundedRectangleBorder(
                        borderRadius: BorderRadius.circular(15.0)),
-                     color: Colors.black87,
+                     color: const Color(0xFF192A56),
                      elevation: 5,
                   //  decoration: const BoxDecoration(color: Colors.teal),
                    // height: double.infinity,
@@ -364,7 +380,31 @@ void initGrid(){
 
           ],
         ),
+
            ),
+          floatingActionButton: FabCircularMenu(
+              alignment: Alignment.bottomCenter,
+              ringColor: Colors.white.withAlpha(25),
+              fabColor: Colors.white,
+
+              fabMargin: const EdgeInsets.all(16.0),
+              animationDuration: const Duration(milliseconds: 100),
+              animationCurve: Curves.easeInOutCirc,
+              fabIconBorder: CircleBorder(),
+              children: <Widget>[
+                IconButton(icon: Icon(Icons.add_circle), onPressed: () {
+
+                  setState(() {
+                    reset();
+                  });
+
+                }
+                ),
+                IconButton(icon: Icon(Icons.favorite), onPressed: () {
+                  print('Favorite');
+                })
+              ]
+          )
     ),
     );
 
