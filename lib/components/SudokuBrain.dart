@@ -53,7 +53,10 @@ class SudokuBrain {
   List<String> getInputAsList() {
     return _input;
   }
+  bool makeMove( final String pos , final String val)
+  {
 
+  }
   void undo() {
     if (movesList.isEmpty) return;
     SCell l = movesList.last;
@@ -81,7 +84,10 @@ class SudokuBrain {
   //  logger.i("IS INPUT OF $idx for val $val->$v");
     return cols.contains(_input[idx]) && _input[idx] == val;
   }
-
+  String getValueAtPos(final String pos )
+  {
+    return puzzleBoard[pos];
+  }
   String getValAtIndex(final int i) {
    // logger.i("GETTING VAL AT IDX $i");
     if (i >= _nrows * _ncols || i < 0)
@@ -91,12 +97,18 @@ class SudokuBrain {
   //  logger.i("POS IS $pos  at $puzzleBoard[pos]");
     return puzzleBoard[pos];
   }
-
+String getSolutionValAtPos(final String pos )
+{
+  return boardDict[pos].join('');
+}
   Set<String> getPeers(final String pos) {
    // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
     return peers[pos];
   }
-
+  List<List<String>> getUnits(final String pos )
+  {
+    return units[pos];
+  }
   String getPosByIndex(final int i) {
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');

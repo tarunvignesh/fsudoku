@@ -38,8 +38,8 @@ class SudokuApp extends StatefulWidget {
 
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
- //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  //SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid ;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -91,23 +91,40 @@ class _SudokuAppState extends State<SudokuApp> {
   //  notifyListeners();
 
   }
-  void clearHighLights() {
-    setState(() {
+  void clearOpacities(){
     _ScreenGrid.forEach((cell) {
       cell.opacity = 1;
     });
+  }
+  void clearHighLights() {
+    setState(() {
+    clearOpacities();
 
     });
   }
 
-
+void animatePeer( final SudokuCell c) {
+  List<String> highLightUnits = _sb.getUnits(c.pos).where((u) => u.every((element) => _sb.getValueAtPos(element) ==
+      _sb.getSolutionValAtPos(element))).expand((element) => element).toList();
+  if(highLightUnits.isNotEmpty) {
+    clearOpacities();
+    setState(() {
+      _ScreenGrid.forEach((cell) {
+        if (highLightUnits.contains(cell.pos))
+          cell.opacity = 0.2;
+      });
+    });
+  }
+}
 
   void highlightCorrect(SudokuCell c) {
     if (_sb.isValidDigitOnGrid(c.val) == false)
       c.tClr = Colors.black;
     else {
-      if (_sb.isCorrectAt(c.pos, c.val) == true)
+      if (_sb.isCorrectAt(c.pos, c.val) == true) {
         c.tClr = Colors.black;
+        animatePeer(c);
+      }
       else
         c.tClr = Colors.red;
     }
@@ -297,9 +314,10 @@ initGrid();
 
     return MaterialApp(
       title: 'Popup Menu Usage',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
+      theme: ThemeData.dark().copyWith(
+      primaryColor: Color(0xFF0A0E21),
+      scaffoldBackgroundColor: Color(0xFF0A0E21),
+    ),
       home: Scaffold(
         appBar: AppBar(
           title: Text('Sudoku'),
