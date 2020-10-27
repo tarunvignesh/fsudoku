@@ -4,6 +4,8 @@ import 'package:sudoku/components/SudokuBrain.dart';
 import 'dart:math';
 import 'package:logger/logger.dart';
 import 'package:fab_circular_menu/fab_circular_menu.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'Timer.dart';
 
 
 class SudokuCell {
@@ -39,6 +41,9 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ ='.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
   SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  final TimerDeps =  new Dependencies();
+  bool paused = false;
+
   //SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid ;
@@ -66,6 +71,8 @@ class _SudokuAppState extends State<SudokuApp> {
 
      logger.i("IN INIT STATE got sb ${_sb.getNRows()}");
      initGrid();
+     TimerDeps.stopwatch.start();
+     paused = false;
     super.initState();
   }
   void highlightPeers(  SudokuCell c) {
@@ -102,7 +109,14 @@ class _SudokuAppState extends State<SudokuApp> {
 
     });
   }
+  void blurGrid(final bool paused) {
+    double opacity = paused ? 0.0 : 1.0;
+    _ScreenGrid.forEach((cell) {
+      cell.opacity = opacity;
+    });
 
+
+  }
 void animatePeer( final SudokuCell c) {
   List<String> highLightUnits = _sb.getUnits(c.pos).where((u) => u.every((element) => _sb.getValueAtPos(element) ==
       _sb.getSolutionValAtPos(element))).expand((element) => element).toList();
@@ -300,6 +314,7 @@ void initGrid(){
 
       void reset() {
     _ScreenGrid.clear();
+      TimerDeps.stopwatch.reset();
         _sb.reset();
 
 initGrid();
@@ -332,20 +347,6 @@ initGrid();
              children: <Widget>[
                Expanded(
                    flex : 3,
-               child:
-               Card(
-          shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15.0),
-        ),
-        color: Colors.pink,
-        elevation: 5,
-
-          child: const ListTile(
-          leading: Icon(Icons.access_time),
-          title: Text('Timer ', style: TextStyle(color: Colors.white)),
-          subtitle: Text('TWICE', style: TextStyle(color: Colors.white)),
-      ))),        Expanded(
-                   flex : 3,
                    child:
                    Card(
                        shape: RoundedRectangleBorder(
@@ -355,10 +356,45 @@ initGrid();
                        elevation: 5,
 
                        child: const ListTile(
-                         leading: Icon(Icons.alternate_email_rounded),
+                         leading:  FaIcon(FontAwesomeIcons.info),
                          title: Text('Score', style: TextStyle(color: Colors.white)),
                          subtitle: Text('TWICE', style: TextStyle(color: Colors.white)),
-                       )))
+                       ))),
+               Expanded(
+                   flex : 3,
+               child:
+               Card(
+          shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.0),
+        ),
+        color: Colors.pink,
+        elevation: 5,
+
+          child: Row(
+            children: [
+              new TimerText(dependencies: TimerDeps),
+              IconButton(  icon:  paused ? FaIcon(FontAwesomeIcons.play  ):  FaIcon(FontAwesomeIcons.pause)
+              ,
+                onPressed: () {
+                setState(() {
+                  if(paused) {
+                    TimerDeps.stopwatch.start();
+                    paused = false;
+
+                  } else {
+                    TimerDeps.stopwatch.stop();
+                    paused = true;
+
+                  }
+                  blurGrid(paused);
+                });
+                })
+
+
+            ],
+          ),
+
+               )),
 
            ]) )  ,
                Expanded(
@@ -410,7 +446,7 @@ initGrid();
               animationCurve: Curves.easeInOutCirc,
               fabIconBorder: CircleBorder(),
               children: <Widget>[
-                IconButton(icon: Icon(Icons.add_circle), onPressed: () {
+                IconButton(icon: FaIcon(FontAwesomeIcons.affiliatetheme), onPressed: () {
 
                   setState(() {
                     reset();
