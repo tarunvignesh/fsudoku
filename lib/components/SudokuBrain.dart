@@ -13,9 +13,18 @@ class SCell {
 
 class SudokuBrain {
   int _nrows = 0;
+
   int _ncols = 0;
   int assigns = 0;
   bool debugMode = false;
+  bool _solved = false;
+
+  bool get solved => _solved;
+
+  set solved(bool value) {
+    _solved = value;
+  }
+
   List<String> _input;
   List<String> rows;
   List<String> cols;
@@ -34,7 +43,7 @@ class SudokuBrain {
   );
   List<List<String>> unitlist;
   Map<String, List<List<String>>> units;
-  var  peers;
+  var peers;
   List<String> squares;
   SudokuBrain({int r, int c, String grid}) {
     _input = grid
@@ -53,10 +62,8 @@ class SudokuBrain {
   List<String> getInputAsList() {
     return _input;
   }
-  bool makeMove( final String pos , final String val)
-  {
 
-  }
+  bool makeMove(final String pos, final String val) {}
   void undo() {
     if (movesList.isEmpty) return;
     SCell l = movesList.last;
@@ -72,6 +79,7 @@ class SudokuBrain {
     SCell s = new SCell(pos, val);
     if (movesList.contains(s) == false) movesList.add(s);
 
+    logger.i("PUZB[$pos]=$val");
     puzzleBoard[pos] = val;
   }
 
@@ -81,42 +89,54 @@ class SudokuBrain {
 
   bool isInInput(final int idx, final String val) {
     var v = _input[idx];
-  //  logger.i("IS INPUT OF $idx for val $val->$v");
+    //  logger.i("IS INPUT OF $idx for val $val->$v");
     return cols.contains(_input[idx]) && _input[idx] == val;
   }
-  String getValueAtPos(final String pos )
-  {
+
+  String getValueAtPos(final String pos) {
     return puzzleBoard[pos];
   }
+
   String getValAtIndex(final int i) {
-   // logger.i("GETTING VAL AT IDX $i");
+    // logger.i("GETTING VAL AT IDX $i");
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
 
     String pos = getPosByIndex(i);
-  //  logger.i("POS IS $pos  at $puzzleBoard[pos]");
+    //  logger.i("POS IS $pos  at $puzzleBoard[pos]");
     return puzzleBoard[pos];
   }
-String getSolutionValAtPos(final String pos )
-{
-  return boardDict[pos].join('');
-}
+
+  bool puzzleSolved() {
+    bool res = _solved &
+        boardDict.keys.every((k) => boardDict[k].join('') == puzzleBoard[k]);
+    logger.i("PUZZLESOLVED() $res _solved is $_solved");
+    return res;
+  }
+
+  String getSolutionValAtPos(final String pos) {
+    return boardDict[pos].join('');
+  }
+
   Set<String> getPeers(final String pos) {
-   // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
+    // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
     return peers[pos];
   }
-  List<List<String>> getUnits(final String pos )
-  {
+
+  List<List<String>> getUnits(final String pos) {
     return units[pos];
   }
+
   String getPosByIndex(final int i) {
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
     return rows[(i / _nrows).floor()] + cols[i % _ncols];
   }
+
   bool isValidDigitOnGrid(final String v) {
     return digits.contains(v);
   }
+
   String getPosByXY(final int r, final int c) {
     if (r > _nrows || c > _ncols)
       throw ('Bad Coordinates to request board position $r,$c');
@@ -143,7 +163,7 @@ String getSolutionValAtPos(final String pos )
 
   int getBlockId(final int r, final int c) {
     String pos = getPosByXY(r, c);
-   // logger.i("POS IS $pos");
+    // logger.i("POS IS $pos");
     int i = 0;
     for (List<String> p in blocks) {
       if (p.contains(pos)) return i;
@@ -185,7 +205,7 @@ String getSolutionValAtPos(final String pos )
 
   void computeInit() {
     squares = crossprod(rows, cols);
-
+    _solved = false;
     int rb = sqrt(_nrows).round();
 
     int cb = sqrt(_ncols).round();
@@ -395,14 +415,16 @@ String getSolutionValAtPos(final String pos )
 
   Map<String, List<String>> solve() {
     boardDict = search(parse_grid());
+    _solved = isSolved();
     return boardDict;
   }
- void reset() {
+
+  void reset() {
     boardDict.clear();
     puzzleBoard.clear();
     movesList.clear();
+  }
 
- }
   Map<String, List<String>> search(Map<String, List<String>> values) {
     loggerNoStack.v("SEARCHING  $values");
     if (values == null || values.isEmpty) return null;
