@@ -34,6 +34,8 @@ class SudokuBrain {
   final List<String> aletters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
   List<String> digits;
   Map<String, List<String>> boardDict;
+  Map<String, List<String>> moveBoard;
+
   Map<String, String> puzzleBoard;
   var logger = Logger(
     printer: PrettyPrinter(),
@@ -338,8 +340,12 @@ class SudokuBrain {
 
   Map<String, List<String>> parse_grid() {
     Map<String, List<String>> values = {for (String s in squares) s: digits};
+    moveBoard = {for (String s in squares) s: digits};
 
     for (MapEntry me in grid_values().entries) {
+      if (digits.contains(me.value))
+        moveBoard[me.key] = List<String>.generate(1, (index) => me.value);
+
       if (digits.contains(me.value) && assign(values, me.key, me.value) == null)
         return null;
     }
@@ -359,6 +365,28 @@ class SudokuBrain {
     }
     ;
     return true;
+  }
+
+  void display_input(Map<String, List<String>> bd) {
+    if (bd == null || bd.isEmpty) throw Exception("Nothing to display");
+    int width = 1 + bd.values.map((v) => v.length).toList().reduce(max);
+    String line = '\n';
+    List<String> dlimRow = ['C', 'F'];
+    List<String> dlimCol = ['3', '6'];
+    line += (new List<String>.generate(sqrt(_nrows).round(),
+        (k) => ('-' * (width * sqrt(_ncols).round() + 1))).join('+'));
+
+    rows.forEach((r) {
+      cols.forEach((c) {
+        String s = bd[r + c].join();
+
+        stdout.write(s.padRight(width, ' ') +
+            (dlimCol.isNotEmpty && dlimCol.contains(c) ? '|' : '') +
+            ' ');
+      });
+      if (dlimRow.isNotEmpty && dlimRow.contains(r)) stdout.write(line);
+      print('');
+    });
   }
 
   void display() {
@@ -447,6 +475,11 @@ class SudokuBrain {
     }
     return null;
   }
+
+  Map<String, List<String>> assignMove(String pos, String val) {
+    moveBoard = assign(moveBoard, pos, val);
+    return moveBoard;
+  }
 }
 
 main_() {
@@ -462,8 +495,9 @@ main_() {
 
   var sm = "201002022".split('');
   var zeroLst = new List<String>.generate(9, (index) => '0');
-  // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  SudokuBrain sb = new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
+  String tbt = "2... 13..   ..3.  ...2";
+  SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  // SudokuBrain sb = new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
   //     r: 9,
@@ -477,13 +511,24 @@ main_() {
   //sb.display();
 //  sb.parse_grid(grb);
 
-  sb.solve();
-  print("SOLUTION IS ");
+  // sb.solve();
+  sb.parse_grid();
+  sb.display_input(sb.moveBoard);
+
+  print("AFTER ASS A2->4");
+  sb.assignMove("A2", "4");
+  if (sb.moveBoard == null || sb.moveBoard.isEmpty)
+    print("ASSIGNMENT CAN'T BE MADe");
+  else
+    sb.display_input(sb.moveBoard);
+
+  // print(sb.moveBoard);
 
   // sb.d1();
-  if (sb.isSolved())
-    sb.display();
-  else
-    print("No solution for input ");
+  // if (sb.isSolved())
+  //   sb.display();
+  // else
+  //   print("No solution for input ");
+  //
   print(sb.getAssigns);
 }

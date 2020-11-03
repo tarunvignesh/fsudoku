@@ -7,6 +7,7 @@ import 'package:fab_circular_menu/fab_circular_menu.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'Timer.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:badges/badges.dart';
 
 class SudokuCell {
   int index;
@@ -22,9 +23,25 @@ class SudokuCell {
 class PuzzleBoardProps {
   int _movesCorrect = 0;
   int _movesWrong = 0;
+
+  int get movesCorrect => _movesCorrect;
   int _puzzleDifficulty = 0;
   double _timeTaken;
   int _assistMode = 0;
+  void reset() {
+    _movesCorrect = 0;
+    _movesWrong = 0;
+    _timeTaken = 0.0;
+    _assistMode = 0;
+  }
+
+  int get movesWrong => _movesWrong;
+
+  int get puzzleDifficulty => _puzzleDifficulty;
+
+  double get timeTaken => _timeTaken;
+
+  int get assistMode => _assistMode;
 }
 
 void main() {
@@ -41,13 +58,17 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
+  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  // SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
   bool paused = false;
   PuzzleBoardProps puzzleProps;
-  //SudokuBrain _sb = new SudokuBrain(r: 9, c: 9, grid: '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  // SudokuBrain _sb = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -71,7 +92,7 @@ class _SudokuAppState extends State<SudokuApp> {
 
   @override
   void initState() {
-    logger.i("IN INIT STATE got sb ${_sb.getNRows()}");
+    //   logger.i("IN INIT STATE got sb ${_sb.getNRows()}");
     initGrid();
     TimerDeps.stopwatch.start();
     paused = false;
@@ -83,7 +104,6 @@ class _SudokuAppState extends State<SudokuApp> {
     //   getSolvedGrid();
     setState(() {
       clearHighLights();
-      logger.i("HIGHLIGHTING PEERS FOR ${c.pos}");
       Set<String> peersList = _sb.getPeers(c.pos);
       _ScreenGrid.forEach((cell) {
         if (peersList.contains(cell.pos)) {
@@ -210,14 +230,20 @@ class _SudokuAppState extends State<SudokuApp> {
             animType: AnimType.BOTTOMSLIDE,
             title: 'Puzzle solved!',
             btnOkText: 'Restart Puzzle',
+            btnOkColor: Colors.blue,
+            btnCancelColor: Colors.blue,
             btnCancelText: 'New Puzzle',
             desc:
-                'Solved board in ${puzzleProps._movesWrong + puzzleProps._movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsedMilliseconds / 1000}',
+                'Solved board in ${puzzleProps._movesWrong + puzzleProps._movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
             btnCancelOnPress: () {
-              reset();
+              setState(() {
+                reset();
+              });
             },
             btnOkOnPress: () {
-              reset();
+              setState(() {
+                reset();
+              });
             },
           ).show();
           print("SOLVED YO!!");
@@ -257,7 +283,7 @@ class _SudokuAppState extends State<SudokuApp> {
             highlightPeers(_cell);
           },
           // onTapUp: (TapUpDetails t) => clearHighLights() ,
-          onLongPress: () => _showCustomMenu(_cell),
+          onTap: () => _showCustomMenu(_cell),
           // This does not give the tap position ...
           //  onTap: () => _showCustomMenu(_cell) ,
           //_showCustomMenu(_cell),
@@ -342,15 +368,24 @@ class _SudokuAppState extends State<SudokuApp> {
     _ScreenGrid.clear();
     TimerDeps.stopwatch.reset();
     _sb.reset();
-
+    puzzleProps.reset();
     initGrid();
   }
 
   @override
   Widget build(BuildContext context) {
     //  logger.i("BUILD CALLED!!");
-
     return MaterialApp(
+      // builder: (context, widget) => ResponsiveWrapper.builder(
+      //     maxWidth: 1200,
+      //     minWidth: 480,
+      //     defaultScale: true,
+      //     breakpoints: [
+      //       ResponsiveBreakpoint.resize(480, name: MOBILE),
+      //       ResponsiveBreakpoint.autoScale(800, name: TABLET),
+      //       ResponsiveBreakpoint.resize(1000, name: DESKTOP),
+      //     ],
+      //     background: Container(color: Color(0xFFF5F5F5))),
       title: 'Popup Menu Usage',
       theme: ThemeData.dark().copyWith(
         primaryColor: Color(0xFF0A0E21),
@@ -369,45 +404,56 @@ class _SudokuAppState extends State<SudokuApp> {
                       Expanded(
                           flex: 3,
                           child: Card(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15.0),
-                              ),
-                              color: Colors.blue,
-                              elevation: 5,
-                              child: const ListTile(
-                                leading: FaIcon(FontAwesomeIcons.info),
-                                title: Text('Score',
-                                    style: TextStyle(color: Colors.white)),
-                                subtitle: Text('TWICE',
-                                    style: TextStyle(color: Colors.white)),
-                              ))),
-                      Expanded(
-                          flex: 3,
-                          child: Card(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(15.0),
                             ),
-                            color: Colors.pink,
+                            //  color: Colors.teal,
                             elevation: 5,
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                new TimerText(dependencies: TimerDeps),
-                                IconButton(
-                                    icon: paused
-                                        ? FaIcon(FontAwesomeIcons.play)
-                                        : FaIcon(FontAwesomeIcons.pause),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (paused) {
-                                          TimerDeps.stopwatch.start();
-                                          paused = false;
-                                        } else {
-                                          TimerDeps.stopwatch.stop();
-                                          paused = true;
-                                        }
-                                        blurGrid(paused);
-                                      });
-                                    })
+                                Row(
+                                  children: [
+                                    FaIcon(FontAwesomeIcons.clock),
+                                    TimerText(dependencies: TimerDeps),
+                                    IconButton(
+                                        color: Colors.pink,
+                                        icon: paused
+                                            ? FaIcon(FontAwesomeIcons.play)
+                                            : FaIcon(FontAwesomeIcons.pause),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (paused) {
+                                              TimerDeps.stopwatch.start();
+                                              paused = false;
+                                            } else {
+                                              TimerDeps.stopwatch.stop();
+                                              paused = true;
+                                            }
+                                            blurGrid(paused);
+                                          });
+                                        }),
+                                    Badge(
+                                        toAnimate: true,
+                                        shape: BadgeShape.circle,
+                                        badgeColor: Colors.green,
+                                        borderRadius: BorderRadius.circular(8),
+                                        badgeContent: Text(
+                                            '${puzzleProps.movesCorrect.toString()}',
+                                            style: TextStyle(
+                                                fontSize: 30,
+                                                color: Colors.white))),
+                                    Badge(
+                                        toAnimate: true,
+                                        shape: BadgeShape.circle,
+                                        badgeColor: Colors.red,
+                                        borderRadius: BorderRadius.circular(8),
+                                        badgeContent: Text(
+                                            '${puzzleProps._movesWrong.toString()}',
+                                            style: TextStyle(
+                                                color: Colors.white))),
+                                  ],
+                                ),
                               ],
                             ),
                           )),
