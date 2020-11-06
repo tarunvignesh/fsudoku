@@ -8,41 +8,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'Timer.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:badges/badges.dart';
-
-class SudokuCell {
-  int index;
-  String pos;
-  String val;
-  Color clr;
-  Color tClr;
-  double opacity = 1.0;
-
-  SudokuCell(this.index, this.pos, this.val, this.clr, this.tClr, this.opacity);
-}
-
-class PuzzleBoardProps {
-  int _movesCorrect = 0;
-  int _movesWrong = 0;
-
-  int get movesCorrect => _movesCorrect;
-  int _puzzleDifficulty = 0;
-  double _timeTaken;
-  int _assistMode = 0;
-  void reset() {
-    _movesCorrect = 0;
-    _movesWrong = 0;
-    _timeTaken = 0.0;
-    _assistMode = 0;
-  }
-
-  int get movesWrong => _movesWrong;
-
-  int get puzzleDifficulty => _puzzleDifficulty;
-
-  double get timeTaken => _timeTaken;
-
-  int get assistMode => _assistMode;
-}
+import 'package:sudoku/components/cell_menu.dart';
+import 'package:sudoku/components/common.dart';
 
 void main() {
   Logger.level = Level.info;
@@ -164,12 +131,12 @@ class _SudokuAppState extends State<SudokuApp> {
       c.tClr = Colors.black;
     else {
       if (_sb.isCorrectAt(c.pos, c.val) == true) {
-        puzzleProps._movesCorrect++;
+        puzzleProps.incrCorrect();
 
         c.tClr = Colors.black;
         animatePeer(c);
       } else {
-        puzzleProps._movesWrong++;
+        puzzleProps.incrWrong();
         c.tClr = Colors.red;
       }
     }
@@ -191,17 +158,14 @@ class _SudokuAppState extends State<SudokuApp> {
     return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
   }
 
-  void _showCustomMenu(SudokuCell _cell) {
-    // Let us show the pop up menu ONLY if the cell is fillable i.e
-    // - It is empty OR
-    // - Not already  specified in input
-
-    if (_sb.isInInput(_cell.index, _cell.val)) return;
+  void _showDraggableMenuItems(SudokuCell _cell) {
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
             context: context,
-            items: <PopupMenuEntry<String>>[PlusMinusEntry(_sb.getNRows())],
+            items: <PopupMenuEntry<String>>[
+              NumberDragEntry(_sb.getNRows(), _cell)
+            ],
             position: RelativeRect.fromRect(
                 _tapPosition &
                     const Size(40, 40), // smaller rect, the touch area
@@ -220,6 +184,60 @@ class _SudokuAppState extends State<SudokuApp> {
         } else {
           _sb.setValAt(_cell.pos, gval);
           _cell.val = gval;
+          _cell.notedVals.add(gval);
+        }
+        highlightCorrect(_cell);
+        if (isSolved()) {
+          TimerDeps.stopwatch.stop();
+
+          print("SOLVED YO!!");
+        }
+        //  context.read<SudokuBoard>().highlightCorrect(_cell);
+      });
+    });
+
+    // Another option:
+    //
+    // final delta = await showMenu(...);
+    //
+    // Then process `delta` however you want.
+    // Remember to make the surrounding function `async`, that is:
+    //
+    // void _showCustomMenu() async { ... }
+  }
+
+  void _showCustomMenu(SudokuCell _cell) {
+    // Let us show the pop up menu ONLY if the cell is fillable i.e
+    // - It is empty OR
+    // - Not already  specified in input
+
+    if (_sb.isInInput(_cell.index, _cell.val)) return;
+    BuildContext context = _gk.currentContext;
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject();
+    showMenu(
+            context: context,
+            items: <PopupMenuEntry<String>>[
+              NumberTapEntry(_sb.getNRows(), _cell)
+            ],
+            position: RelativeRect.fromRect(
+                _tapPosition &
+                    const Size(40, 40), // smaller rect, the touch area
+                Offset.zero & overlay.size // Bigger rect, the entire screen
+                ))
+        // This is how you handle user selection
+        .then<void>((String gval) {
+      // delta would be null if user taps on outside the popup menu
+      // (causing it to close without making selection)
+      if (gval == null) return;
+
+      setState(() {
+        if (gval == 'X') {
+          _sb.undo();
+          _cell.val = _sb.getValAtIndex(_cell.index);
+        } else {
+          _sb.setValAt(_cell.pos, gval);
+          _cell.val = gval;
+          _cell.notedVals.add(gval);
         }
         highlightCorrect(_cell);
         if (isSolved()) {
@@ -234,7 +252,7 @@ class _SudokuAppState extends State<SudokuApp> {
             btnCancelColor: Colors.blue,
             btnCancelText: 'New Puzzle',
             desc:
-                'Solved board in ${puzzleProps._movesWrong + puzzleProps._movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
+                'Solved board in ${puzzleProps.movesWrong + puzzleProps.movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
             btnCancelOnPress: () {
               setState(() {
                 reset();
@@ -267,50 +285,62 @@ class _SudokuAppState extends State<SudokuApp> {
   }
 
   Widget buildSquare(SudokuCell _cell) {
-    return AspectRatio(
-      // padding: const EdgeInsets.all(8.0),
-      aspectRatio: 0.5,
-      child: AnimatedOpacity(
-        opacity: _cell.opacity,
-        curve: Curves.easeInCirc,
-        duration: Duration(milliseconds: 100),
-        child:
-            //   children: <Widget>[
-            GestureDetector(
-          //    debugPaintPointersEnabled:true,
-          onTapDown: (TapDownDetails d) {
-            _storePosition(d);
-            highlightPeers(_cell);
-          },
-          // onTapUp: (TapUpDetails t) => clearHighLights() ,
-          onTap: () => _showCustomMenu(_cell),
-          // This does not give the tap position ...
-          //  onTap: () => _showCustomMenu(_cell) ,
-          //_showCustomMenu(_cell),
-          // Have to remember it on tap-down.
-          //    onTapDown: _storePosition,
+    return DragTarget(
+        builder: (context, List<String> candidateData, rejectedData) {
+      return AspectRatio(
+          // padding: const EdgeInsets.all(8.0),
+          aspectRatio: 0.5,
+          child: AnimatedOpacity(
+            opacity: _cell.opacity,
+            curve: Curves.easeInCirc,
+            duration: Duration(milliseconds: 100),
+            child:
+                //   children: <Widget>[
+                GestureDetector(
+              //    debugPaintPointersEnabled:true,
+              onTapDown: (TapDownDetails d) {
+                _storePosition(d);
+                highlightPeers(_cell);
+              },
+              // onTapUp: (TapUpDetails t) => clearHighLights() ,
+              onTap: () => _showCustomMenu(_cell),
+              onLongPress: () => _showDraggableMenuItems(_cell),
 
-          child: Container(
-            decoration: BoxDecoration(
-                color: _cell.clr,
-                border: Border.all(color: Colors.black, width: 3),
-                borderRadius: BorderRadius.all(Radius.circular(10))),
-            //    color: _cell.clr,
-            child: Center(
+              // This does not give the tap position ...
+              //  onTap: () => _showCustomMenu(_cell) ,
+              //_showCustomMenu(_cell),
+              // Have to remember it on tap-down.
+              //    onTapDown: _storePosition,
+
               child: Container(
-                child: Text(
-                  _cell.val,
-                  style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      color: _cell.tClr),
+                decoration: BoxDecoration(
+                    color: _cell.clr,
+                    border: Border.all(color: Colors.black, width: 3),
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
+                //    color: _cell.clr,
+                child: Center(
+                  child: Container(
+                    child: Text(
+                      _cell.val,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: _cell.tClr),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
+          ));
+    }, onWillAccept: (data) {
+      return true;
+    }, onAccept: (data) {
+      setState(() {
+        _cell.notedVals.add(data);
+        _cell.val = _cell.val == '.' ? data : _cell.val + data;
+        logger.i("DRAGGED DATA $data");
+      });
+    });
   }
 
   Widget fillSquare(final idx) {
@@ -346,7 +376,8 @@ class _SudokuAppState extends State<SudokuApp> {
           _sb.isInInput(index, _sb.getValAtIndex(index))
               ? Colors.indigo
               : Colors.black,
-          1.0);
+          1.0,
+          List());
     });
     logger.i("GOT A GRID for input ${_sb.getInputAsString()}");
   }
@@ -449,7 +480,7 @@ class _SudokuAppState extends State<SudokuApp> {
                                         badgeColor: Colors.red,
                                         borderRadius: BorderRadius.circular(8),
                                         badgeContent: Text(
-                                            '${puzzleProps._movesWrong.toString()}',
+                                            puzzleProps.movesWrong.toString(),
                                             style: TextStyle(
                                                 color: Colors.white))),
                                   ],
@@ -512,49 +543,5 @@ class _SudokuAppState extends State<SudokuApp> {
                     })
               ])),
     );
-  }
-}
-
-class PlusMinusEntry extends PopupMenuEntry<String> {
-  @override
-  double height = 100;
-  int nrows;
-  // height doesn't matter, as long as we are not giving
-  // initialValue to showMenu().
-  PlusMinusEntry(int n) {
-    nrows = n;
-  }
-  @override
-  bool represents(String n) => n.length < 2;
-
-  @override
-  PlusMinusEntryState createState() => PlusMinusEntryState(nrows);
-}
-
-class PlusMinusEntryState extends State<PlusMinusEntry> {
-  int nrows;
-  PlusMinusEntryState(int n) {
-    nrows = n;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: retChildren());
-  }
-
-  Expanded newPopupCell(final String s) {
-    return new Expanded(
-        child: FlatButton(
-            onPressed: () {
-              Navigator.pop(context, s);
-            },
-            child: Text(s)));
-  }
-
-  List<Expanded> retChildren() {
-    return new List<Expanded>.generate(
-        nrows, (index) => newPopupCell((index + 1).toString()))
-      ..add(newPopupCell('?'))
-      ..add(newPopupCell('X'));
   }
 }
