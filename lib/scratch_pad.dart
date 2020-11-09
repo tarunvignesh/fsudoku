@@ -30,6 +30,7 @@ class _SudokuAppState extends State<SudokuApp> {
 
   final TimerDeps = new Dependencies();
   bool paused = false;
+  SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
   // SudokuBrain _sb = new SudokuBrain(
   //     r: 9,
@@ -158,43 +159,38 @@ class _SudokuAppState extends State<SudokuApp> {
     return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
   }
 
-  void _showDraggableMenuItems(SudokuCell _cell) {
+  void _showPencilMenuItems(SudokuCell _cell) {
+    SelectedCell = _cell;
     BuildContext context = _gk.currentContext;
+    logger.i("CONTEXT IS $context");
+
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
             context: context,
             items: <PopupMenuEntry<String>>[
-              NumberDragEntry(_sb.getNRows(), _cell)
+              NumberPencilEntry(_sb.getNRows(), _cell)
             ],
+            // items: List.generate(
+            //     _sb.getNRows(),
+            //     (index) => PopupMenuItem<String>(
+            //         child: newDraggableCell(_cell, (index + 1).toString()),
+            //         value: (index + 1).toString())),
+            elevation: 8,
             position: RelativeRect.fromRect(
                 _tapPosition &
                     const Size(40, 40), // smaller rect, the touch area
                 Offset.zero & overlay.size // Bigger rect, the entire screen
                 ))
-        // This is how you handle user selection
-        .then<void>((String gval) {
-      // delta would be null if user taps on outside the popup menu
-      // (causing it to close without making selection)
+        .then((String gval) {
       if (gval == null) return;
 
       setState(() {
-        if (gval == 'X') {
-          _sb.undo();
-          _cell.val = _sb.getValAtIndex(_cell.index);
-        } else {
-          _sb.setValAt(_cell.pos, gval);
-          _cell.val = gval;
-          _cell.notedVals.add(gval);
-        }
-        highlightCorrect(_cell);
-        if (isSolved()) {
-          TimerDeps.stopwatch.stop();
+        _cell.notedVals.add(gval);
 
-          print("SOLVED YO!!");
-        }
         //  context.read<SudokuBoard>().highlightCorrect(_cell);
       });
     });
+    // This is how you handle user selectio
 
     // Another option:
     //
@@ -206,11 +202,39 @@ class _SudokuAppState extends State<SudokuApp> {
     // void _showCustomMenu() async { ... }
   }
 
+  Widget dragCell(final String s) {
+    return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.0),
+        ),
+        color: Colors.teal,
+        elevation: 5,
+        child: Text(s,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)));
+  }
+
+  Widget newDraggableCell(final SudokuCell sc, final String s) {
+    return new Draggable<String>(
+        data: s,
+        childWhenDragging: dragCell(s),
+        feedback: Container(
+            color: Colors.lightBlue,
+            child: Text(s, style: TextStyle(fontSize: 30))),
+        //feedback: dragCell(s),
+        onDragCompleted: () {
+          logger.i("DRAG DONE");
+        },
+        onDragStarted: () {
+          print("YO DRAGGING to ${sc.pos}  $s");
+        },
+        child: dragCell(s));
+  }
+
   void _showCustomMenu(SudokuCell _cell) {
     // Let us show the pop up menu ONLY if the cell is fillable i.e
     // - It is empty OR
     // - Not already  specified in input
-
+    SelectedCell = _cell;
     if (_sb.isInInput(_cell.index, _cell.val)) return;
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
@@ -285,62 +309,52 @@ class _SudokuAppState extends State<SudokuApp> {
   }
 
   Widget buildSquare(SudokuCell _cell) {
-    return DragTarget(
-        builder: (context, List<String> candidateData, rejectedData) {
-      return AspectRatio(
-          // padding: const EdgeInsets.all(8.0),
-          aspectRatio: 0.5,
-          child: AnimatedOpacity(
+    return AspectRatio(
+        // padding: const EdgeInsets.all(8.0),
+        aspectRatio: 0.5,
+        child: AnimatedOpacity(
             opacity: _cell.opacity,
             curve: Curves.easeInCirc,
             duration: Duration(milliseconds: 100),
             child:
                 //   children: <Widget>[
                 GestureDetector(
-              //    debugPaintPointersEnabled:true,
-              onTapDown: (TapDownDetails d) {
-                _storePosition(d);
-                highlightPeers(_cell);
-              },
-              // onTapUp: (TapUpDetails t) => clearHighLights() ,
-              onTap: () => _showCustomMenu(_cell),
-              onLongPress: () => _showDraggableMenuItems(_cell),
+                    //    debugPaintPointersEnabled:true,
+                    onTapDown: (TapDownDetails d) {
+                      _storePosition(d);
+                      highlightPeers(_cell);
+                    },
+                    // onTapUp: (TapUpDetails t) => clearHighLights() ,
+                    onTap: () => _showCustomMenu(_cell),
+                    onLongPress: () => _showPencilMenuItems(_cell),
 
-              // This does not give the tap position ...
-              //  onTap: () => _showCustomMenu(_cell) ,
-              //_showCustomMenu(_cell),
-              // Have to remember it on tap-down.
-              //    onTapDown: _storePosition,
-
-              child: Container(
-                decoration: BoxDecoration(
-                    color: _cell.clr,
-                    border: Border.all(color: Colors.black, width: 3),
-                    borderRadius: BorderRadius.all(Radius.circular(10))),
-                //    color: _cell.clr,
-                child: Center(
-                  child: Container(
-                    child: Text(
-                      _cell.val,
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: _cell.tClr),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ));
-    }, onWillAccept: (data) {
-      return true;
-    }, onAccept: (data) {
-      setState(() {
-        _cell.notedVals.add(data);
-        _cell.val = _cell.val == '.' ? data : _cell.val + data;
-        logger.i("DRAGGED DATA $data");
-      });
-    });
+                    // This does not give the tap position ...
+                    //  onTap: () => _showCustomMenu(_cell) ,
+                    //_showCustomMenu(_cell),
+                    // Have to remember it on tap-down.
+                    //    onTapDown: _storePosition,
+                    child: Container(
+                      decoration: BoxDecoration(
+                          color: _cell.clr,
+                          border: Border.all(color: Colors.black, width: 3),
+                          borderRadius: BorderRadius.all(Radius.circular(10))),
+                      //    color: _cell.clr,
+                      child: Center(
+                        child: Container(
+                          child: Text(
+                            ((_cell.val.isNotEmpty &&
+                                    !['.', '?'].contains(_cell.val) &&
+                                    _sb.isCorrectAt(_cell.pos, _cell.val))
+                                ? _cell.val.toString()
+                                : _cell.notedVals.join(",")),
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: _cell.tClr),
+                          ),
+                        ),
+                      ),
+                    ))));
   }
 
   Widget fillSquare(final idx) {
@@ -366,7 +380,7 @@ class _SudokuAppState extends State<SudokuApp> {
     _sb.solve();
     logger.i("WE NOW HAVE GRID ${_sb.getInputAsString()}");
     _ScreenGrid = List.generate(_sb.getNRows() * _sb.getNCols(), (index) {
-      logger.i("GETTING ELEM $index");
+      //logger.i("GETTING ELEM $index");
       //  return new MyHomePage(
       return new SudokuCell(
           index,
@@ -377,7 +391,7 @@ class _SudokuAppState extends State<SudokuApp> {
               ? Colors.indigo
               : Colors.black,
           1.0,
-          List());
+          Set());
     });
     logger.i("GOT A GRID for input ${_sb.getInputAsString()}");
   }
@@ -490,7 +504,7 @@ class _SudokuAppState extends State<SudokuApp> {
                           )),
                     ])),
                 Expanded(
-                  flex: 8,
+                  flex: 4,
                   child: Card(
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15.0)),
@@ -517,6 +531,53 @@ class _SudokuAppState extends State<SudokuApp> {
                         ),
                       ])),
                 ),
+                Expanded(
+                    flex: 1,
+                    child: Card(
+                      color: Colors.pinkAccent,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15.0)),
+                      child: Container(
+                          child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(
+                                  3,
+                                  (index) => new Draggable<String>(
+                                      data: index.toString(),
+                                      feedback: Container(
+                                          color: Colors.blue,
+                                          child: Text(index.toString())),
+                                      childWhenDragging: Container(
+                                          color: Colors.blue,
+                                          child: Text(index.toString())),
+                                      child: Container(
+                                          color: Colors.blue,
+                                          child: Text(index.toString())))))
+                          // color: Colors.lightBlue,
+                          ),
+                    )),
+                Expanded(
+                  flex: 1,
+                  child: DragTarget<String>(builder:
+                      (context, List<String> candidateData, rejectedData) {
+                    logger.i("WE ARE IN DRAGTARGET $candidateData");
+
+                    return Card(
+                      color: Colors.teal,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15.0)),
+                      child: Container(
+                          // color: Colors.lightBlue,
+                          ),
+                    );
+                  }, onAccept: (String data) {
+                    setState(() {
+                      logger.i("GOT DATA $data");
+                    });
+                  }, onWillAccept: (String data) {
+                    return true;
+                  }),
+                )
               ],
             ),
           ),

@@ -7,11 +7,21 @@ class SudokuCell {
   String val;
   Color clr;
   Color tClr;
-  List<String> notedVals;
+  Set<String> notedVals;
   double opacity = 1.0;
 
   SudokuCell(this.index, this.pos, this.val, this.clr, this.tClr, this.opacity,
       this.notedVals);
+}
+
+// class DraggablePopupMenuItem extends Draggable<String>
+//     with PopupMenuItem<String> {
+//   DraggablePopupMenuItem(Widget child, String value)
+//       : super(child: child, value: value);
+// }
+class DraggablePopupMenuItem extends PopupMenuItem<String> {
+  DraggablePopupMenuItem(Widget child, String value)
+      : super(child: child, value: value);
 }
 
 class PuzzleBoardProps {
