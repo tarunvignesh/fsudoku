@@ -25,18 +25,18 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
   // SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
   bool paused = false;
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
-  // SudokuBrain _sb = new SudokuBrain(
-  //     r: 9,
-  //     c: 9,
-  //     grid:
-  //         '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  SudokuBrain _sb = new SudokuBrain(
+      r: 9,
+      c: 9,
+      grid:
+          '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -185,7 +185,11 @@ class _SudokuAppState extends State<SudokuApp> {
       if (gval == null) return;
 
       setState(() {
-        _cell.notedVals.add(gval);
+        logger.i(("GOT IN SS() $gval"));
+        if (int.parse(gval) < 0)
+          _cell.notedVals.remove(gval[1]);
+        else
+          _cell.notedVals.add(gval);
 
         //  context.read<SudokuBoard>().highlightCorrect(_cell);
       });
@@ -531,53 +535,53 @@ class _SudokuAppState extends State<SudokuApp> {
                         ),
                       ])),
                 ),
-                Expanded(
-                    flex: 1,
-                    child: Card(
-                      color: Colors.pinkAccent,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.0)),
-                      child: Container(
-                          child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: List.generate(
-                                  3,
-                                  (index) => new Draggable<String>(
-                                      data: index.toString(),
-                                      feedback: Container(
-                                          color: Colors.blue,
-                                          child: Text(index.toString())),
-                                      childWhenDragging: Container(
-                                          color: Colors.blue,
-                                          child: Text(index.toString())),
-                                      child: Container(
-                                          color: Colors.blue,
-                                          child: Text(index.toString())))))
-                          // color: Colors.lightBlue,
-                          ),
-                    )),
-                Expanded(
-                  flex: 1,
-                  child: DragTarget<String>(builder:
-                      (context, List<String> candidateData, rejectedData) {
-                    logger.i("WE ARE IN DRAGTARGET $candidateData");
-
-                    return Card(
-                      color: Colors.teal,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.0)),
-                      child: Container(
-                          // color: Colors.lightBlue,
-                          ),
-                    );
-                  }, onAccept: (String data) {
-                    setState(() {
-                      logger.i("GOT DATA $data");
-                    });
-                  }, onWillAccept: (String data) {
-                    return true;
-                  }),
-                )
+                // Expanded(
+                //     flex: 1,
+                //     child: Card(
+                //       color: Colors.pinkAccent,
+                //       shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(15.0)),
+                //       child: Container(
+                //           child: Row(
+                //               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                //               children: List.generate(
+                //                   3,
+                //                   (index) => new Draggable<String>(
+                //                       data: index.toString(),
+                //                       feedback: Container(
+                //                           color: Colors.blue,
+                //                           child: Text(index.toString())),
+                //                       childWhenDragging: Container(
+                //                           color: Colors.blue,
+                //                           child: Text(index.toString())),
+                //                       child: Container(
+                //                           color: Colors.blue,
+                //                           child: Text(index.toString())))))
+                //           // color: Colors.lightBlue,
+                //           ),
+                //     )),
+                // Expanded(
+                //   flex: 1,
+                //   child: DragTarget<String>(builder:
+                //       (context, List<String> candidateData, rejectedData) {
+                //     logger.i("WE ARE IN DRAGTARGET $candidateData");
+                //
+                //     return Card(
+                //       color: Colors.teal,
+                //       shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(15.0)),
+                //       child: Container(
+                //           // color: Colors.lightBlue,
+                //           ),
+                //     );
+                //   }, onAccept: (String data) {
+                //     setState(() {
+                //       logger.i("GOT DATA $data");
+                //     });
+                //   }, onWillAccept: (String data) {
+                //     return true;
+                //   }),
+                // )
               ],
             ),
           ),

@@ -95,21 +95,38 @@ class NumberPencilEntryState extends State<NumberPencilEntry> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.0)),
         color: Colors.blueGrey,
         elevation: 10,
-        child: Row(children: retChildren()));
+        child: Row(
+            children: retChildren()
+              ..insert(
+                  0,
+                  Expanded(
+                      child: CircleAvatar(
+                          child: FaIcon(FontAwesomeIcons.penFancy))))));
 
     // return SafeArea(child: Row(children: retChildren()));
   }
 
   Expanded newPopupCell(final String s) {
+    bool alreadyPencilled = sc.notedVals.contains(s);
     return new Expanded(
         // data: s,
         // childWhenDragging: Container(),
         // feedback: Text(s),
-        child: FlatButton(
-            onPressed: () {
-              Navigator.pop(context, s);
-            },
-            child: Text(s)));
+        child: Column(children: <Widget>[
+      IconButton(
+        onPressed: () {
+          print("YO IN PRESSED $alreadyPencilled");
+          if (alreadyPencilled)
+            Navigator.pop(context, "-" + s);
+          else
+            Navigator.pop(context, s);
+        },
+        icon: alreadyPencilled
+            ? FaIcon(FontAwesomeIcons.eraser)
+            : FaIcon(FontAwesomeIcons.pencilAlt),
+      ),
+      Text(s)
+    ]));
   }
 
   List<Widget> retChildren() {
