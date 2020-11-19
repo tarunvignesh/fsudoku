@@ -25,19 +25,26 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  // SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
+  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
   bool paused = false;
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
-  // SudokuBrain _sb = new SudokuBrain(
-  //     r: 9,
-  //     c: 9,
-  //     grid:
-  //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
-  // //   '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  // String six =
+  //     "0,0,3,0,2,0,6,0,0,9,0,0,3,0,5,0,0,1,0,0,1,8,0,6,4,0,0,0,0,8,1,0,2,9,0,0,7,0,0,0,0,0,0,0,8,0,0,6,7,0,8,2,0,0,0,0,2,6,0,9,5,0,8,0,0,2,0,3,0,0,0,0,5,0,1,0,3,0,0";
+
+  // String six = "003020600900305001001806400008102900";
+  // SudokuBrain _sb =
+  //     new SudokuBrain(r: 6, c: 6, grid: "103020600300305001001064005001026010");
+
+  SudokuBrain _sb = new SudokuBrain(
+      r: 9,
+      c: 9,
+      grid:
+          "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
+  // '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -80,7 +87,7 @@ class _SudokuAppState extends State<SudokuApp> {
         if (peersList.contains(cell.pos)) {
           //  logger.i("CHANGING OPACITY OF ${cell.pos}");
           cell.opacity = 0.4;
-          cell.clr = Colors.cyan;
+          cell.clr = Colors.lightBlueAccent;
         } else
           cell.opacity = 1.0;
       });
@@ -172,7 +179,7 @@ class _SudokuAppState extends State<SudokuApp> {
   void _showPencilMenuItems(SudokuCell _cell) {
     SelectedCell = _cell;
     BuildContext context = _gk.currentContext;
-
+    if (_sb.isInInput(_cell.index, _cell.val)) return;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
             context: context,
@@ -231,7 +238,7 @@ class _SudokuAppState extends State<SudokuApp> {
         data: s,
         childWhenDragging: dragCell(s),
         feedback: Container(
-            color: Colors.lightBlue,
+            color: Colors.lightGreen,
             child: Text(s, style: TextStyle(fontSize: 30))),
         //feedback: dragCell(s),
         onDragCompleted: () {
@@ -327,10 +334,60 @@ class _SudokuAppState extends State<SudokuApp> {
     });
   }
 
+  BoxDecoration getBoxDecorationForSquare(final SudokuCell _cell) {
+    bool leftBold = false;
+    bool rightBold = false;
+    bool topBold = false;
+    bool botBold = false;
+    final cBlkId = _sb.getBlockIdByIndex(_cell.index);
+
+    const double borderWidth = 1.0;
+    final Color borderColor = Colors.transparent;
+    final Color blockEdgeColor = Colors.red;
+    if (_cell.pos[1] == '1' ||
+        ((_cell.index - 1) > -1 &&
+            _sb.getBlockIdByIndex(_cell.index - 1) != cBlkId)) {
+      leftBold = true;
+    }
+    if (_cell.pos[1] == _sb.getNCols().toString() ||
+        ((_cell.index + 1) < _sb.getNCols() &&
+            _sb.getBlockIdByIndex(_cell.index + 1) != cBlkId)) {
+      rightBold = true;
+    }
+    if (_cell.pos[0] == 'A' ||
+        ((_cell.index - (_sb.getNRows())) > -1 &&
+            _sb.getBlockIdByIndex(_cell.index - (_sb.getNRows())) != cBlkId)) {
+      topBold = true;
+    }
+    if (_cell.pos[0] == _sb.rows[_sb.getNRows() - 1] ||
+        ((_cell.index + _sb.getNCols()) < _sb.getNCols() &&
+            _sb.getBlockIdByIndex(_cell.index + _sb.getNCols()) != cBlkId)) {
+      botBold = true;
+    }
+    return BoxDecoration(
+        color: _cell.clr,
+        //   borderRadius: BorderRadius.all(Radius.circular(10)),
+        //  borderRadius: BorderRadius.only(topLeft: Radius.circular(10) ),
+        border: Border(
+          top: topBold
+              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              : BorderSide(color: borderColor, width: borderWidth),
+          bottom: botBold
+              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              : BorderSide(color: borderColor, width: borderWidth),
+          left: leftBold
+              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              : BorderSide(color: borderColor, width: borderWidth),
+          right: rightBold
+              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              : BorderSide(color: borderColor, width: borderWidth),
+        ));
+  }
+
   Widget buildSquare(SudokuCell _cell) {
     return AspectRatio(
       // padding: const EdgeInsets.all(8.0),
-      aspectRatio: 0.5,
+      aspectRatio: 1,
 
       child: AnimatedOpacity(
           opacity: _cell.opacity,
@@ -357,10 +414,12 @@ class _SudokuAppState extends State<SudokuApp> {
                     duration: Duration(milliseconds: 1000),
                     // Provide an optional curve to make the animation feel smoother.
                     curve: Curves.bounceInOut,
-                    decoration: BoxDecoration(
-                        color: _cell.clr,
-                        border: Border.all(color: Colors.black, width: 3),
-                        borderRadius: BorderRadius.all(Radius.circular(10))),
+                    decoration: getBoxDecorationForSquare(_cell),
+
+                    // BoxDecoration(
+                    //     color: _cell.clr,
+                    //     border: Border.all(color: Colors.black, width: 3),
+                    //     borderRadius: BorderRadius.all(Radius.circular(10))),
                     //    color: _cell.clr,
                     child: Center(
                       child: Container(
@@ -544,16 +603,70 @@ class _SudokuAppState extends State<SudokuApp> {
                       // decoration: BoxDecoration(
                       //     border: Border.all(color: Colors.black, width: 2.0)),
 
-                      child: CustomScrollView(primary: false, slivers: <Widget>[
-                        SliverPadding(
-                          padding: const EdgeInsets.all(4),
-                          sliver: SliverGrid.count(
-                              crossAxisSpacing: 2,
-                              mainAxisSpacing: 2,
-                              crossAxisCount: _sb.getNRows(),
-                              children: setupScreenGrid()),
-                        ),
-                      ])),
+                      child: Stack(
+                        children: <Widget>[
+                          // Card(
+                          //   color: Colors.orangeAccent[50],
+                          //   child: Column(
+                          //       mainAxisAlignment:
+                          //           MainAxisAlignment.spaceEvenly,
+                          //       children: List.generate(
+                          //           sqrt(_sb.getNCols()).floor() - 1,
+                          //           (index) => Container(
+                          //               // child: buildSquare(SudokuCell(
+                          //               //     0,
+                          //               //     'A0',
+                          //               //     '',
+                          //               //     Colors.transparent,
+                          //               //     Colors.transparent,
+                          //               //     0.0,
+                          //               //     Set<String>())),
+                          //               //     margin: const EdgeInsets.all(15.0),
+                          //               //   padding: const EdgeInsets.all(3.0),
+                          //               decoration: BoxDecoration(
+                          //                   border:
+                          //                       Border.all(color: Colors.blue)),
+                          //               child: Container()))),
+                          // ),
+                          // Container(
+                          //   color: Colors.pink[90],
+                          //   child: Row(
+                          //       mainAxisAlignment:
+                          //           MainAxisAlignment.spaceEvenly,
+                          //       //     crossAxisAlignment: CrossAxisAlignment.baseline,
+                          //       children: List.generate(
+                          //           sqrt(_sb.getNRows()).floor() - 1,
+                          //           (index) => Container(
+                          //               // child: buildSquare(SudokuCell(
+                          //               //     0,
+                          //               //     'A0',
+                          //               //     '',
+                          //               //     Colors.transparent,
+                          //               //     Colors.transparent,
+                          //               //     0.0,
+                          //               //     Set<String>())),
+                          //               //     margin: const EdgeInsets.all(15.0),
+                          //               //   padding: const EdgeInsets.all(3.0),
+                          //               decoration: BoxDecoration(
+                          //                   border: Border.all(
+                          //                       color: Colors.green)),
+                          //               child: Container()))),
+                          // ),
+                          CustomScrollView(
+                            primary: false,
+                            slivers: <Widget>[
+                              SliverPadding(
+                                padding: const EdgeInsets.all(4),
+                                sliver: SliverGrid.count(
+                                    crossAxisSpacing: 2,
+                                    mainAxisSpacing: 2,
+                                    crossAxisCount: _sb.getNRows(),
+                                    children: setupScreenGrid()),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )),
                 ),
                 // Expanded(
                 //     flex: 1,
