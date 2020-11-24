@@ -25,25 +25,22 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  // SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
   //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
   bool paused = false;
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
-  // String six =
-  //     "0,0,3,0,2,0,6,0,0,9,0,0,3,0,5,0,0,1,0,0,1,8,0,6,4,0,0,0,0,8,1,0,2,9,0,0,7,0,0,0,0,0,0,0,8,0,0,6,7,0,8,2,0,0,0,0,2,6,0,9,5,0,8,0,0,2,0,3,0,0,0,0,5,0,1,0,3,0,0";
 
-  // String six = "003020600900305001001806400008102900";
-  // SudokuBrain _sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "103020600300305001001064005001026010");
+  SudokuBrain _sb =
+      new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
 
-  SudokuBrain _sb = new SudokuBrain(
-      r: 9,
-      c: 9,
-      grid:
-          "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
+  // SudokuBrain _sb = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
   // '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
@@ -57,7 +54,7 @@ class _SudokuAppState extends State<SudokuApp> {
   // Proper icons for undo ,
   // Show why wrong by highlinting conflict
   // Enter your number?
-
+  List<SudokuCell> _DragList;
   GlobalKey _gk = GlobalKey();
   var _tapPosition;
 
@@ -110,6 +107,7 @@ class _SudokuAppState extends State<SudokuApp> {
     _ScreenGrid.forEach((cell) {
       cell.opacity = 1;
       cell.spotlight = false;
+      cell.animateblock = false;
       cell.clr = getColor(_sb.getBlockIdByIndex(cell.index));
     });
   }
@@ -127,6 +125,22 @@ class _SudokuAppState extends State<SudokuApp> {
     });
   }
 
+  void showDrag() {
+    logger.i("DRAGLIST IS ${_DragList.map((e) => e.index)}");
+    clearOpacities();
+    setState(() {
+      for (var cell in _ScreenGrid) {
+        if (cell.index >= _DragList[0].index ||
+            cell.index == _DragList[1].index) {
+          logger.i("DRAGLIST HAS ${cell.pos}");
+          cell.clr = Colors.redAccent;
+          cell.opacity = 0.2;
+          if (cell.index == _DragList[1].index) break;
+        }
+      }
+    });
+  }
+
   void animatePeer(final SudokuCell c) {
     List<String> highLightUnits = _sb
         .getUnits(c.pos)
@@ -138,7 +152,10 @@ class _SudokuAppState extends State<SudokuApp> {
       clearOpacities();
       setState(() {
         _ScreenGrid.forEach((cell) {
-          if (highLightUnits.contains(cell.pos)) cell.opacity = 0.2;
+          if (highLightUnits.contains(cell.pos)) {
+            cell.opacity = 0.2;
+            cell.animateblock = true;
+          }
         });
       });
     }
@@ -241,6 +258,7 @@ class _SudokuAppState extends State<SudokuApp> {
             color: Colors.lightGreen,
             child: Text(s, style: TextStyle(fontSize: 30))),
         //feedback: dragCell(s),
+
         onDragCompleted: () {
           logger.i("DRAG DONE");
         },
@@ -342,6 +360,7 @@ class _SudokuAppState extends State<SudokuApp> {
     final cBlkId = _sb.getBlockIdByIndex(_cell.index);
 
     const double borderWidth = 1.0;
+    const double blockSepWidth = 2.0;
     final Color borderColor = Colors.transparent;
     final Color blockEdgeColor = Colors.red;
     if (_cell.pos[1] == '1' ||
@@ -370,16 +389,16 @@ class _SudokuAppState extends State<SudokuApp> {
         //  borderRadius: BorderRadius.only(topLeft: Radius.circular(10) ),
         border: Border(
           top: topBold
-              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              ? BorderSide(width: blockSepWidth, color: blockEdgeColor)
               : BorderSide(color: borderColor, width: borderWidth),
           bottom: botBold
-              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              ? BorderSide(width: blockSepWidth, color: blockEdgeColor)
               : BorderSide(color: borderColor, width: borderWidth),
           left: leftBold
-              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              ? BorderSide(width: blockSepWidth, color: blockEdgeColor)
               : BorderSide(color: borderColor, width: borderWidth),
           right: rightBold
-              ? BorderSide(width: borderWidth, color: blockEdgeColor)
+              ? BorderSide(width: blockSepWidth, color: blockEdgeColor)
               : BorderSide(color: borderColor, width: borderWidth),
         ));
   }
@@ -391,12 +410,24 @@ class _SudokuAppState extends State<SudokuApp> {
 
       child: AnimatedOpacity(
           opacity: _cell.opacity,
-          curve: Curves.easeInCirc,
-          duration: Duration(milliseconds: 100),
+          curve: (_cell.animateblock == true)
+              ? Curves.decelerate
+              : Curves.easeInCirc,
+          duration:
+              Duration(milliseconds: (_cell.animateblock == true) ? 400 : 100),
           child:
               //   children: <Widget>[
               GestureDetector(
                   //    debugPaintPointersEnabled:true,
+                  onHorizontalDragStart: (d) {
+                    _DragList.clear();
+                    _DragList.add(_cell);
+                  },
+                  onHorizontalDragUpdate: (d) {
+                    _DragList.add(_cell);
+
+                    showDrag();
+                  },
                   onTapDown: (TapDownDetails d) {
                     _storePosition(d);
                     highlightPeers(_cell);
@@ -425,7 +456,7 @@ class _SudokuAppState extends State<SudokuApp> {
                       child: Container(
                         child: Text(
                           ((_cell.val.isNotEmpty &&
-                                  !['.', '?'].contains(_cell.val) &&
+                                  !['.', '?', '-'].contains(_cell.val) &&
                                   _sb.isCorrectAt(_cell.pos, _cell.val))
                               ? _cell.val.toString()
                               : _cell.notedVals.join(",")),
@@ -461,7 +492,18 @@ class _SudokuAppState extends State<SudokuApp> {
   void initGrid() {
     //first lets solve it internally!
     _sb.solve();
-    logger.i("WE NOW HAVE GRID ${_sb.getInputAsString()}");
+    _sb.display();
+    logger.i("${_sb.boardDict}");
+
+    if (_sb.isSolved() == false) {
+      _sb.displayPuzzle(_sb.getInputAsList());
+      logger.i("${_sb.boardDict}");
+      ;
+      throw ('Cannot not solve the input grid ');
+    }
+    logger.i("WE NOW HAVE GRID ${_sb.getInputAsString()}} with solution ");
+    _sb.display();
+    _DragList = List();
     _ScreenGrid = List.generate(_sb.getNRows() * _sb.getNCols(), (index) {
       //logger.i("GETTING ELEM $index");
       //  return new MyHomePage(

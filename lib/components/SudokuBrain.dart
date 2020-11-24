@@ -51,6 +51,8 @@ class SudokuBrain {
     _input = grid
         .toString()
         .replaceAll(new RegExp(r"\s+\b|\b\s|\s|\b"), "")
+        .replaceAll(new RegExp(r"0"), ".")
+        .replaceAll(new RegExp(r"-"), ".")
         .split('');
 
     assigns = 0;
@@ -207,22 +209,45 @@ class SudokuBrain {
 
   void computeInit() {
     squares = crossprod(rows, cols);
+    logger.i("SQUARES IS $squares");
     _solved = false;
-    int rb = sqrt(_nrows).round();
+    int rb =
+        _nrows > 3 ? (_nrows ~/ sqrt(_nrows).floor()) : sqrt(_nrows).floor();
 
-    int cb = sqrt(_ncols).round();
+    int cb =
+        _ncols > 3 ? (_ncols ~/ sqrt(_ncols).ceil()) : sqrt(_nrows).floor();
+    int delta = (rb == cb) ? 0 : 1;
 
-    List<String> rBlock = new List<String>.generate(
-        rb, (i) => rows.sublist(i * rb, (i * rb) + rb).join());
-    List<String> cBlock = new List<String>.generate(
-        cb, (i) => cols.sublist(i * cb, (i * rb) + cb).join());
+    // List<String> rBlock = ['AB', 'CD', 'EF'];
+    // List<String> cBlock = ['123', '456'];
+    int listctr = 0;
+    List<String> rBlock = List<String>.generate(rb, (index) {
+      String x = rows.sublist(listctr, listctr + (rb - delta)).join();
+      listctr += (rb - delta);
+      //  logger.i(" x is $x and lc now is $listctr");
 
-    logger.d("SQUARES IS $squares");
+      return x;
+    });
+    listctr = 0;
+    List<String> cBlock = List<String>.generate(cb, (index) {
+      String x = cols.sublist(listctr, listctr + (cb + delta)).join();
+      listctr += (cb + delta);
+      //   logger.i(" x is $x and lc now is $listctr");
+
+      return x;
+    });
+    // List<String> rBlock = new List<String>.generate(rb,
+    //     (i) => rows.sublist(i * (rb - 1), (i * (rb - 1)) + (rb - 1)).join());
+    // List<String> cBlock = new List<String>.generate(
+    //     cb, (i) => cols.sublist(i * cb, (i * rb) + cb).join());
+
+    logger.i("RB $rBlock , CB $cBlock ");
     blocks = rBlock
         .map((final String rs) => cBlock
             .map((final String cs) => crossprod(rs.split(''), cs.split(''))))
         .expand((var l) => l)
         .toList();
+    logger.i("BLOCKS ARE $blocks");
     int i = 0;
     unitlist = cols.map((final String c) => crossprod(rows, [c])).toList() +
         rows.map((final String r) => crossprod([r], cols)).toList() +
@@ -412,6 +437,12 @@ class SudokuBrain {
     });
   }
 
+  // List<String> neighbors(final String pos )
+  // {
+  //     String r = pos[0];
+  //     String c = pos[1];
+  //
+  // }
   void displayPuzzle(final List<String> values) {
     int colCtr = 0;
     double blockCtr = 0;
@@ -496,8 +527,12 @@ main_() {
   var sm = "201002022".split('');
   var zeroLst = new List<String>.generate(9, (index) => '0');
   String tbt = "2... 13..   ..3.  ...2";
+  // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+
+  // SudokuBrain sb =
+  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
   SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  // SudokuBrain sb = new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
+  //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
   //     r: 9,
@@ -511,24 +546,24 @@ main_() {
   //sb.display();
 //  sb.parse_grid(grb);
 
-  // sb.solve();
-  sb.parse_grid();
-  sb.display_input(sb.moveBoard);
-
-  print("AFTER ASS A2->4");
-  sb.assignMove("A2", "4");
-  if (sb.moveBoard == null || sb.moveBoard.isEmpty)
-    print("ASSIGNMENT CAN'T BE MADe");
-  else
-    sb.display_input(sb.moveBoard);
+  sb.solve();
+  // sb.parse_grid();
+  // sb.display_input(sb.moveBoard);
+  //
+  // print("AFTER ASS A2->4");
+  // sb.assignMove("A2", "4");
+  // if (sb.moveBoard == null || sb.moveBoard.isEmpty)
+  //   print("ASSIGNMENT CAN'T BE MADe");
+  // else
+  //   sb.display_input(sb.moveBoard);
 
   // print(sb.moveBoard);
 
   // sb.d1();
-  // if (sb.isSolved())
-  //   sb.display();
-  // else
-  //   print("No solution for input ");
+  if (sb.isSolved())
+    sb.display();
+  else
+    print("No solution for input ");
   //
-  print(sb.getAssigns);
+//  print(sb.getAssigns);
 }
