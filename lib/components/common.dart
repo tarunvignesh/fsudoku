@@ -7,11 +7,15 @@ class SudokuCell {
   String val;
   Color clr;
   Color tClr;
+  bool spotlight;
+  bool animateblock;
+  bool isCorrect = false;
   Set<String> notedVals;
   double opacity = 1.0;
 
   SudokuCell(this.index, this.pos, this.val, this.clr, this.tClr, this.opacity,
-      this.notedVals);
+      this.notedVals,
+      {this.spotlight = false});
 }
 
 // class DraggablePopupMenuItem extends Draggable<String>

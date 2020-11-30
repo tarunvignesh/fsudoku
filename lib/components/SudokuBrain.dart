@@ -112,6 +112,7 @@ class SudokuBrain {
   }
 
   bool puzzleSolved() {
+    logger.i("PUZZLE BOARD IS $puzzleBoard");
     bool res = _solved &
         boardDict.keys.every((k) => boardDict[k].join('') == puzzleBoard[k]);
     logger.i("PUZZLESOLVED() $res _solved is $_solved");

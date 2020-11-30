@@ -25,7 +25,7 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  // SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
   //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
@@ -33,8 +33,8 @@ class _SudokuAppState extends State<SudokuApp> {
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
 
-  SudokuBrain _sb =
-      new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+  // SudokuBrain _sb =
+  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
 
   // SudokuBrain _sb = new SudokuBrain(
   //     r: 9,
@@ -165,7 +165,7 @@ class _SudokuAppState extends State<SudokuApp> {
     if (_sb.isValidDigitOnGrid(c.val) == false)
       c.tClr = Colors.black;
     else {
-      if (_sb.isCorrectAt(c.pos, c.val) == true) {
+      if (c.isCorrect == true) {
         puzzleProps.incrCorrect();
 
         c.tClr = Colors.black;
@@ -297,10 +297,12 @@ class _SudokuAppState extends State<SudokuApp> {
           _sb.undo();
           _cell.val = _sb.getValAtIndex(_cell.index);
         } else {
-          _sb.setValAt(_cell.pos, gval);
           _cell.val = gval;
-          _cell.notedVals.add(gval);
+
+          _sb.setValAt(_cell.pos, gval);
+          //   _cell.notedVals.add(gval);
         }
+        _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
         highlightCorrect(_cell);
         if (isSolved()) {
           TimerDeps.stopwatch.stop();
@@ -309,17 +311,13 @@ class _SudokuAppState extends State<SudokuApp> {
             dialogType: DialogType.SUCCES,
             animType: AnimType.BOTTOMSLIDE,
             title: 'Puzzle solved!',
-            btnOkText: 'Restart Puzzle',
+            btnOkText: 'New Puzzle',
             btnOkColor: Colors.blue,
             btnCancelColor: Colors.blue,
-            btnCancelText: 'New Puzzle',
+            btnCancelText: 'Dismiss',
             desc:
                 'Solved board in ${puzzleProps.movesWrong + puzzleProps.movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
-            btnCancelOnPress: () {
-              setState(() {
-                reset();
-              });
-            },
+            btnCancelOnPress: () {},
             btnOkOnPress: () {
               setState(() {
                 reset();
@@ -404,6 +402,7 @@ class _SudokuAppState extends State<SudokuApp> {
   }
 
   Widget buildSquare(SudokuCell _cell) {
+    _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
     return AspectRatio(
       // padding: const EdgeInsets.all(8.0),
       aspectRatio: 1,
@@ -455,13 +454,11 @@ class _SudokuAppState extends State<SudokuApp> {
                     child: Center(
                       child: Container(
                         child: Text(
-                          ((_cell.val.isNotEmpty &&
-                                  !['.', '?', '-'].contains(_cell.val) &&
-                                  _sb.isCorrectAt(_cell.pos, _cell.val))
-                              ? _cell.val.toString()
-                              : _cell.notedVals.join(",")),
+                          _cell.notedVals.isNotEmpty
+                              ? _cell.notedVals.join(",")
+                              : _cell.val.toString(),
                           style: TextStyle(
-                              fontSize: 15,
+                              fontSize: _cell.isCorrect ? 20 : 15,
                               fontWeight: FontWeight.bold,
                               color: _cell.tClr),
                         ),
