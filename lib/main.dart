@@ -25,7 +25,7 @@ class SudokuApp extends StatefulWidget {
 class _SudokuAppState extends State<SudokuApp> {
   String nine_ =
       '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....';
-  SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
   //SudokuBrain _sb = new SudokuBrain(r: 4, c: 4, grid: "2413 1324   4231  314.");
 
   final TimerDeps = new Dependencies();
@@ -33,8 +33,8 @@ class _SudokuAppState extends State<SudokuApp> {
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
 
-  // SudokuBrain _sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+  SudokuBrain _sb =
+      new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
 
   // SudokuBrain _sb = new SudokuBrain(
   //     r: 9,
@@ -303,6 +303,8 @@ class _SudokuAppState extends State<SudokuApp> {
           //   _cell.notedVals.add(gval);
         }
         _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
+        if(_cell.isCorrect)
+          _cell.notedVals.clear();
         highlightCorrect(_cell);
         if (isSolved()) {
           TimerDeps.stopwatch.stop();
@@ -403,9 +405,9 @@ class _SudokuAppState extends State<SudokuApp> {
 
   Widget buildSquare(SudokuCell _cell) {
     _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
-    return AspectRatio(
+    return RotatedBox(
       // padding: const EdgeInsets.all(8.0),
-      aspectRatio: 1,
+      quarterTurns: _cell.notedVals.isNotEmpty? 1:0,
 
       child: AnimatedOpacity(
           opacity: _cell.opacity,
@@ -453,14 +455,21 @@ class _SudokuAppState extends State<SudokuApp> {
                     //    color: _cell.clr,
                     child: Center(
                       child: Container(
-                        child: Text(
-                          _cell.notedVals.isNotEmpty
-                              ? _cell.notedVals.join(",")
-                              : _cell.val.toString(),
-                          style: TextStyle(
-                              fontSize: _cell.isCorrect ? 20 : 15,
-                              fontWeight: FontWeight.bold,
-                              color: _cell.tClr),
+
+                        child: Row(
+                          children: [
+                            _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
+
+                            Text(
+                              _cell.notedVals.isNotEmpty
+                                  ? _cell.notedVals.join(",")
+                                  : _cell.val.toString(),
+                              style: TextStyle(
+                                  fontSize: _cell.isCorrect ? 20 : 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: _cell.tClr),
+                            ),
+                          ],
                         ),
                       ),
                     ),
