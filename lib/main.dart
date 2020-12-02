@@ -197,7 +197,7 @@ class _SudokuAppState extends State<SudokuApp> {
   void _showPencilMenuItems(SudokuCell _cell) {
     SelectedCell = _cell;
     BuildContext context = _gk.currentContext;
-    if (_sb.isInInput(_cell.index, _cell.val)) return;
+    if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
             context: context,
@@ -274,7 +274,8 @@ class _SudokuAppState extends State<SudokuApp> {
     // - It is empty OR
     // - Not already  specified in input
     SelectedCell = _cell;
-    if (_sb.isInInput(_cell.index, _cell.val)) return;
+    if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
+
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
@@ -467,7 +468,7 @@ class _SudokuAppState extends State<SudokuApp> {
                                   : _cell.val.toString(),
                               style: TextStyle(
                                   fontSize: _cell.notedVals.isNotEmpty ?  15:20,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w800,
                                   color: _cell.tClr),
                             ),
                           ],
