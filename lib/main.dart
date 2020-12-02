@@ -33,15 +33,15 @@ class _SudokuAppState extends State<SudokuApp> {
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
 
-  SudokuBrain _sb =
-      new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+  // SudokuBrain _sb =
+  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
 
-  // SudokuBrain _sb = new SudokuBrain(
-  //     r: 9,
-  //     c: 9,
-  //     grid:
-  //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
-  // '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  SudokuBrain _sb = new SudokuBrain(
+      r: 9,
+      c: 9,
+      grid:
+          "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
+  //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -190,7 +190,8 @@ class _SudokuAppState extends State<SudokuApp> {
       Colors.white,
       Colors.orangeAccent,
     ];
-    return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
+  //  return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
+     return Colors.teal;
   }
 
   void _showPencilMenuItems(SudokuCell _cell) {
@@ -458,15 +459,15 @@ class _SudokuAppState extends State<SudokuApp> {
 
                         child: Row(
                           children: [
-                            _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
+                          //  _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
 
                             Text(
                               _cell.notedVals.isNotEmpty
                                   ? _cell.notedVals.join(",")
                                   : _cell.val.toString(),
                               style: TextStyle(
-                                  fontSize: _cell.isCorrect ? 20 : 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: _cell.notedVals.isNotEmpty ?  15:20,
+                                  fontWeight: FontWeight.w900,
                                   color: _cell.tClr),
                             ),
                           ],
