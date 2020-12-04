@@ -414,7 +414,36 @@ class SudokuBrain {
       print('');
     });
   }
+  List<String> generatePuzzle( ){
+     final int numEnt = 2*_nrows -1;
+     final int uniqDigits = _nrows -1;
+     logger.i("IN GEN PUZZ");
+     Map<String, List<String>> values = {for (String s in squares) s: digits};
+     List<String>  sq = List<String>() ;
+     sq.addAll(squares);
+     sq.shuffle(new Random());
+     for ( String s  in sq) {
+       Random r = new Random();
+       if (assign(
+           values, s, values[s].elementAt(r.nextInt(values[s].length))) ==
+           null) {
+         break;
+       }
+       List<String> t = squares.where((s) => values[s].length == 1).map((
+           e) => values[e]).toList().expand((element) => element).toList();
+       logger.i("T IS $t");
+       if (t.length >= numEnt && t
+           .toSet()
+           .length >= uniqDigits)
+         return values.values.map((e) => e.length == 1 ? e : '.')
+             .toList()
+             .expand((element) => element)
+             .toList();
+     }
+     return generatePuzzle();
 
+
+  }
   void display() {
     if (boardDict == null || boardDict.isEmpty)
       throw Exception("Nothing to display");
@@ -514,7 +543,7 @@ class SudokuBrain {
   }
 }
 
-main_() {
+main() {
   Logger.level = Level.info;
 
   var gr =
@@ -533,6 +562,7 @@ main_() {
   // SudokuBrain sb =
   //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
   SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+  print(sb.generatePuzzle());
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
@@ -547,7 +577,7 @@ main_() {
   //sb.display();
 //  sb.parse_grid(grb);
 
-  sb.solve();
+ // sb.solve();
   // sb.parse_grid();
   // sb.display_input(sb.moveBoard);
   //
@@ -561,10 +591,10 @@ main_() {
   // print(sb.moveBoard);
 
   // sb.d1();
-  if (sb.isSolved())
-    sb.display();
-  else
-    print("No solution for input ");
+  // if (sb.isSolved())
+  //   sb.display();
+  // else
+  //   print("No solution for input ");
   //
 //  print(sb.getAssigns);
 }
