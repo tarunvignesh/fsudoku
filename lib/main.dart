@@ -32,16 +32,15 @@ class _SudokuAppState extends State<SudokuApp> {
   bool paused = false;
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
-
+  SudokuBrain _sb = new SudokuBrain(r: 6, c: 6, grid: "");
   // SudokuBrain _sb =
   //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-
-  SudokuBrain _sb = new SudokuBrain(
-      r: 9,
-      c: 9,
-      grid:
-          "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
-  //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  // SudokuBrain _sb = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
+  // //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -190,14 +189,15 @@ class _SudokuAppState extends State<SudokuApp> {
       Colors.white,
       Colors.orangeAccent,
     ];
-  //  return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
-     return Colors.teal;
+    //  return (idx % 2 == 0) ? Colors.brown[100] : Colors.limeAccent;
+    return Colors.teal;
   }
 
   void _showPencilMenuItems(SudokuCell _cell) {
     SelectedCell = _cell;
     BuildContext context = _gk.currentContext;
-    if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
+    if (_sb.isInInput(_cell.index, _cell.val) ||
+        _sb.isCorrectAt(_cell.pos, _cell.val)) return;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
     showMenu(
             context: context,
@@ -274,7 +274,8 @@ class _SudokuAppState extends State<SudokuApp> {
     // - It is empty OR
     // - Not already  specified in input
     SelectedCell = _cell;
-    if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
+    if (_sb.isInInput(_cell.index, _cell.val) ||
+        _sb.isCorrectAt(_cell.pos, _cell.val)) return;
 
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
@@ -305,8 +306,7 @@ class _SudokuAppState extends State<SudokuApp> {
           //   _cell.notedVals.add(gval);
         }
         _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
-        if(_cell.isCorrect)
-          _cell.notedVals.clear();
+        if (_cell.isCorrect) _cell.notedVals.clear();
         highlightCorrect(_cell);
         if (isSolved()) {
           TimerDeps.stopwatch.stop();
@@ -409,7 +409,7 @@ class _SudokuAppState extends State<SudokuApp> {
     _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
     return RotatedBox(
       // padding: const EdgeInsets.all(8.0),
-      quarterTurns: _cell.notedVals.isNotEmpty? 1:0,
+      quarterTurns: _cell.notedVals.isNotEmpty ? 1 : 0,
 
       child: AnimatedOpacity(
           opacity: _cell.opacity,
@@ -457,17 +457,17 @@ class _SudokuAppState extends State<SudokuApp> {
                     //    color: _cell.clr,
                     child: Center(
                       child: Container(
-
                         child: Row(
                           children: [
-                          //  _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
+                            //  _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
 
                             Text(
                               _cell.notedVals.isNotEmpty
                                   ? _cell.notedVals.join(",")
                                   : _cell.val.toString(),
                               style: TextStyle(
-                                  fontSize: _cell.notedVals.isNotEmpty ?  15:20,
+                                  fontSize:
+                                      _cell.notedVals.isNotEmpty ? 15 : 20,
                                   fontWeight: FontWeight.w800,
                                   color: _cell.tClr),
                             ),

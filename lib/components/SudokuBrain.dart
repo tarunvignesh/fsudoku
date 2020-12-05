@@ -47,14 +47,8 @@ class SudokuBrain {
   Map<String, List<List<String>>> units;
   var peers;
   List<String> squares;
-  SudokuBrain({int r, int c, String grid}) {
-    _input = grid
-        .toString()
-        .replaceAll(new RegExp(r"\s+\b|\b\s|\s|\b"), "")
-        .replaceAll(new RegExp(r"0"), ".")
-        .replaceAll(new RegExp(r"-"), ".")
-        .split('');
 
+  SudokuBrain({int r, int c, String grid}) {
     assigns = 0;
     _nrows = r;
     _ncols = c;
@@ -62,7 +56,20 @@ class SudokuBrain {
     cols = adigits.sublist(0, _ncols);
     digits = cols;
     computeInit();
+    if (grid.isEmpty) {
+      _input = cleanInput(generatePuzzle(r, c).join(''));
+    } else
+      _input = cleanInput(grid);
   }
+  List<String> cleanInput(final String puzz) {
+    return puzz
+        .toString()
+        .replaceAll(new RegExp(r"\s+\b|\b\s|\s|\b"), "")
+        .replaceAll(new RegExp(r"0"), ".")
+        .replaceAll(new RegExp(r"-"), ".")
+        .split('');
+  }
+
   List<String> getInputAsList() {
     return _input;
   }
@@ -414,36 +421,34 @@ class SudokuBrain {
       print('');
     });
   }
-  List<String> generatePuzzle( ){
-     final int numEnt = 2*_nrows -1;
-     final int uniqDigits = _nrows -1;
-     logger.i("IN GEN PUZZ");
-     Map<String, List<String>> values = {for (String s in squares) s: digits};
-     List<String>  sq = List<String>() ;
-     sq.addAll(squares);
-     sq.shuffle(new Random());
-     for ( String s  in sq) {
-       Random r = new Random();
-       if (assign(
-           values, s, values[s].elementAt(r.nextInt(values[s].length))) ==
-           null) {
-         break;
-       }
-       List<String> t = squares.where((s) => values[s].length == 1).map((
-           e) => values[e]).toList().expand((element) => element).toList();
-       logger.i("T IS $t");
-       if (t.length >= numEnt && t
-           .toSet()
-           .length >= uniqDigits)
-         return values.values.map((e) => e.length == 1 ? e : '.')
-             .toList()
-             .expand((element) => element)
-             .toList();
-     }
-     return generatePuzzle();
 
-
+  List<String> generatePuzzle(final int r, final int c) {
+    final int numEnt = 2 * r - 1;
+    final int uniqDigits = c - 1;
+    logger.i("IN GEN PUZZ");
+    Map<String, List<String>> values = {for (String s in squares) s: digits};
+    List<String> sq = List<String>();
+    sq.addAll(squares);
+    sq.shuffle(new Random());
+    for (String s in sq) {
+      Random r = new Random();
+      if (assign(values, s, values[s].elementAt(r.nextInt(values[s].length))) ==
+          null) {
+        break;
+      }
+      List<String> t = squares
+          .where((s) => values[s].length == 1)
+          .map((e) => values[e].join(''))
+          .toList();
+      logger.i("T IS $t");
+      if (t.length >= numEnt && t.toSet().length >= uniqDigits)
+        return values.values
+            .map((e) => e.length == 1 ? e.join('') : '.')
+            .toList();
+    }
+    return generatePuzzle(r, c);
   }
+
   void display() {
     if (boardDict == null || boardDict.isEmpty)
       throw Exception("Nothing to display");
@@ -543,7 +548,7 @@ class SudokuBrain {
   }
 }
 
-main() {
+main_() {
   Logger.level = Level.info;
 
   var gr =
@@ -561,8 +566,17 @@ main() {
 
   // SudokuBrain sb =
   //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-  SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  print(sb.generatePuzzle());
+  SudokuBrain sb = new SudokuBrain(r: 6, c: 6, grid: "2... 13..   ..3.  ...2");
+  String pz = sb.generatePuzzle(6, 6).join('');
+  SudokuBrain sb1 = new SudokuBrain(r: 6, c: 6, grid: pz);
+  //sb1.parse_grid();
+
+  //sb1.display();
+  sb1.solve();
+  sb1.displayPuzzle(pz.split(''));
+  print("SOLUTION:--");
+  sb1.display();
+  print("PUZZLE SOVED IN ${sb1.getAssigns} moves");
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
@@ -577,7 +591,7 @@ main() {
   //sb.display();
 //  sb.parse_grid(grb);
 
- // sb.solve();
+  // sb.solve();
   // sb.parse_grid();
   // sb.display_input(sb.moveBoard);
   //
