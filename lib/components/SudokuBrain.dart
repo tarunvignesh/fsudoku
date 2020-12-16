@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
@@ -33,8 +34,8 @@ class SudokuBrain {
   final List<String> adigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   final List<String> aletters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
   List<String> digits;
-  Map<String, List<String>> boardDict;
-  Map<String, List<String>> moveBoard;
+  LinkedHashMap<String, List<String>> boardDict;
+  LinkedHashMap<String, List<String>> moveBoard;
 
   Map<String, String> puzzleBoard;
   var logger = Logger(
@@ -44,8 +45,9 @@ class SudokuBrain {
     printer: PrettyPrinter(methodCount: 0),
   );
   List<List<String>> unitlist;
-  Map<String, List<List<String>>> units;
-  var peers;
+  LinkedHashMap<String, List<List<String>>> units;
+
+  LinkedHashMap<String, Set<String>> peers;
   List<String> squares;
 
   SudokuBrain({int r, int c, String grid}) {
@@ -94,6 +96,10 @@ class SudokuBrain {
     puzzleBoard[pos] = val;
   }
 
+  void setInput(final String s) {
+    _input = cleanInput(s);
+  }
+
   bool haveUndos() {
     return movesList.isNotEmpty;
   }
@@ -132,7 +138,7 @@ class SudokuBrain {
 
   Set<String> getPeers(final String pos) {
     // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
-    return peers[pos];
+    return peers[pos].toSet();
   }
 
   List<List<String>> getUnits(final String pos) {
@@ -196,7 +202,7 @@ class SudokuBrain {
   }
 
   String getInputAsString() {
-    return _input.toString();
+    return _input.join('');
   }
 
   int getNRows() {
@@ -260,16 +266,18 @@ class SudokuBrain {
     unitlist = cols.map((final String c) => crossprod(rows, [c])).toList() +
         rows.map((final String r) => crossprod([r], cols)).toList() +
         blocks;
+    units = new LinkedHashMap();
 
-    units = {
-      for (var elem in squares)
-        elem: unitlist.where((e) => e.contains(elem)).toList()
-    };
+    for (var elem in squares) {
+      units[elem] = unitlist.where((e) => e.contains(elem)).toList();
+    }
+    peers = new LinkedHashMap();
 
-    peers = {
-      for (var elem in squares)
-        elem: units[elem].expand((e) => e).toSet()..remove(elem)
-    };
+    //  peers = {
+    for (String elem in squares) {
+      peers[elem] = units[elem].expand((e) => e).toSet()..remove(elem);
+    }
+    // };
     logger.d('done with computeInit ');
   }
 
@@ -290,7 +298,7 @@ class SudokuBrain {
         .toList();
   }
 
-  Map<String, String> grid_values() {
+  LinkedHashMap<String, String> grid_values() {
     logger.i("IN GRIDVALUES()");
     List<String> chars = _input
         .map((c) => digits.contains(c) || ['.', '0'].contains(c)
@@ -299,38 +307,40 @@ class SudokuBrain {
         .toList();
     if (chars.length != _nrows * _ncols)
       throw 'Bad grid input. Num entries is ${chars.length}';
-    int idx = 0;
-    Map<String, String> m = {for (var elem in squares) elem: chars[idx++]};
+    var it = chars.iterator;
+    LinkedHashMap<String, String> m = LinkedHashMap();
+
+    for (var elem in squares) {
+      if (it.moveNext()) m[elem] = it.current;
+    }
+
     puzzleBoard = m.map((key, value) => MapEntry(key, value));
 
     return m;
   }
 
-  Map<String, List<String>> assign(
+  LinkedHashMap<String, List<String>> assign(
       Map<String, List<String>> values, String s, String d) {
-    List<String> other_values = values[s].map((element) => element).toList();
-    if (other_values.length == 1) {
-      return values;
-    }
-    if (values.keys.where((k) => values[k].length == 1).toList().contains(d)) {
-      logger.e("$d already solved ");
-      return null;
-    }
-    other_values.remove(d);
+    List<String> other_values =
+        values[s].where((element) => element != d).toList();
     assigns++;
     logger.d('Assigning $d at pos $s i.e eliminating ');
     logger.d('Other values ${other_values}');
-
-    List<bool> x = other_values.map((d3) {
-      var er = eliminate(values, s, d3);
-      return (er == null ? false : true);
-    }).toList();
-
-    if (x.every((e) => e != false))
-      return values;
-    else {
-      return null;
+    bool ret_null = false;
+    for (var d3 in other_values) {
+      if (eliminate(values, s, d3) == null) return null;
     }
+    return values;
+    // List<bool> x = other_values.map((d3) {
+    //   var er = eliminate(values, s, d3);
+    //   return (er == null ? false : true);
+    // }).toList();
+    //
+    // if (x.every((e) => e != false))
+    //   return values;
+    // else {
+    //   return null;
+    // }
   }
 
   Map<String, List<String>> eliminate(
@@ -338,8 +348,15 @@ class SudokuBrain {
     if (values[s].contains(d) == false) {
       return values;
     }
-    List<String> t = values[s].map((element) => element).toList();
-    t.remove(d);
+    //  print('AFTER ' + values[s]);
+    //  print('BEFORE ${values[s]} $s $d ');
+
+    List<String> t = values[s].where((element) => element != d).toList();
+    // print('AFTER  ${t} $s $d ');
+
+    // List<String> t = values[s].map((element) => element).toList();
+    // t.remove(d);
+    //values[s] = values[s]..remove(d);
     if (t.length == 0) {
       logger.e("EMPTY VALUES");
       return null;
@@ -347,11 +364,14 @@ class SudokuBrain {
       values[s] = t;
       if (values[s].length == 1) {
         String d2 = values[s].first;
-        List<dynamic> elemLst =
-            peers[s].map((s2) => eliminate(values, s2, d2)).toList();
+        // for (var s2 in peers[s]) {
+        //   if (eliminate(values, s2, d2) == null) return null;
+        // }
+        List<String> elemLst = peers[s].toList()
+          ..map((s2) => eliminate(values, s2, d2)).toList();
 
-        if (elemLst.any((e) => e != null) == false) {
-          logger.e("CONTRADICTION SINCE WE COULD NOT ELIMINATE  ");
+        if (elemLst.every((e) => e != null) == false) {
+          //      logger.e("CONTRADICTION SINCE WE COULD NOT ELIMINATE  ");
           return null;
         }
       }
@@ -372,8 +392,14 @@ class SudokuBrain {
   }
 
   Map<String, List<String>> parse_grid() {
-    Map<String, List<String>> values = {for (String s in squares) s: digits};
-    moveBoard = {for (String s in squares) s: digits};
+    LinkedHashMap<String, List<String>> values = new LinkedHashMap();
+    for (String s in squares) {
+      values[s] = digits;
+    }
+    moveBoard = new LinkedHashMap();
+    for (String s in squares) {
+      moveBoard[s] = digits;
+    }
 
     for (MapEntry me in grid_values().entries) {
       if (digits.contains(me.value))
@@ -422,18 +448,22 @@ class SudokuBrain {
     });
   }
 
-  List<String> generatePuzzle(final int r, final int c) {
-    final int numEnt = 2 * r - 1;
-    final int uniqDigits = c - 1;
+  List<String> generatePuzzle(final int nr, final int nc) {
+    final int numEnt = (2 * nr) - 1;
+    final int uniqDigits = nc - 1;
+    final double easyFac = 2.5 * ((nr * nc) - numEnt);
     logger.i("IN GEN PUZZ");
     Map<String, List<String>> values = {for (String s in squares) s: digits};
     List<String> sq = List<String>();
     sq.addAll(squares);
     sq.shuffle(new Random());
+
     for (String s in sq) {
       Random r = new Random();
-      if (assign(values, s, values[s].elementAt(r.nextInt(values[s].length))) ==
-          null) {
+
+      //  if (assign(values, s, digits.elementAt(r.nextInt(digits.length))) ==
+
+      if (assign(values, s, values[s][(r.nextInt(values[s].length))]) == null) {
         break;
       }
       List<String> t = squares
@@ -441,12 +471,37 @@ class SudokuBrain {
           .map((e) => values[e].join(''))
           .toList();
       logger.i("T IS $t");
-      if (t.length >= numEnt && t.toSet().length >= uniqDigits)
-        return values.values
-            .map((e) => e.length == 1 ? e.join('') : '.')
-            .toList();
+      if (t.length >= numEnt && t.toSet().length >= uniqDigits) {
+        List<String> pz =
+            values.values.map((e) => e.length == 1 ? e.join('') : '.').toList();
+
+        // List<String> onlyOne =
+        //     values.keys.toList().where((e) => values[e].length == 1).toList();
+        // onlyOne.shuffle(new Random());
+        // List<String> others =
+        //     values.keys.toList().where((e) => values[e].length > 1).toList();
+        // List<String> sl = onlyOne.sublist(0, (nr / 2).round());
+        // List<String> pz = values.keys
+        //     .map((e) => sl.contains(e) ? values[e].join('') : '.')
+        //     .toList();
+        setInput(pz.join(''));
+        solve();
+
+        logger.i("SOLVED IN $getAssigns");
+        if (isSolved()
+            //&&
+            // values.values
+            //         .where((e) => e.length > 1)
+            //         .fold(0, (pv, el) => pv + el.length) <=
+            //     easyFac
+
+            )
+          return pz;
+        else
+          break;
+      }
     }
-    return generatePuzzle(r, c);
+    return generatePuzzle(nr, nc);
   }
 
   void display() {
@@ -454,7 +509,9 @@ class SudokuBrain {
       throw Exception("Nothing to display");
     int width = 1 + boardDict.values.map((v) => v.length).toList().reduce(max);
     String line = '\n';
-    List<String> dlimRow = ['C', 'F'];
+    // List<String> dlimRow = ['B', 'D'];
+    // List<String> dlimCol = ['3', '6'];
+    List<String> dlimRow = ['B', 'F'];
     List<String> dlimCol = ['3', '6'];
     line += (new List<String>.generate(sqrt(_nrows).round(),
         (k) => ('-' * (width * sqrt(_ncols).round() + 1))).join('+'));
@@ -507,7 +564,8 @@ class SudokuBrain {
     });
   }
 
-  Map<String, List<String>> solve() {
+  LinkedHashMap<String, List<String>> solve() {
+    assigns = 0;
     boardDict = search(parse_grid());
     _solved = isSolved();
     return boardDict;
@@ -519,7 +577,8 @@ class SudokuBrain {
     movesList.clear();
   }
 
-  Map<String, List<String>> search(Map<String, List<String>> values) {
+  LinkedHashMap<String, List<String>> search(
+      LinkedHashMap<String, List<String>> values) {
     loggerNoStack.v("SEARCHING  $values");
     if (values == null || values.isEmpty) return null;
 
@@ -527,28 +586,28 @@ class SudokuBrain {
       boardDict = values;
       return values;
     }
-    Map<int, String> ord = {
-      for (var k in values.keys)
-        if (values[k].length > 1) values[k].length: k
-    };
-    String minSzKey = ord[ord.keys.reduce(min)];
+    String minSzKey = values.keys
+        .where((e) => values[e].length > 1)
+        .reduce((p, c) => values[p].length <= values[c].length ? p : c);
+    int n = values[minSzKey].length;
+    logger.i("N is $n , s is $minSzKey");
     for (String d in values[minSzKey]) {
-      Map<String, List<String>> res = search(assign(
+      LinkedHashMap<String, List<String>> res = search(assign(
           values.map((key, value) => MapEntry(key, value)), minSzKey, d));
-      if (res != null && res.isNotEmpty) {
+      if (res != null) {
         return res;
       }
     }
     return null;
   }
 
-  Map<String, List<String>> assignMove(String pos, String val) {
+  LinkedHashMap<String, List<String>> assignMove(String pos, String val) {
     moveBoard = assign(moveBoard, pos, val);
     return moveBoard;
   }
 }
 
-main_() {
+main() {
   Logger.level = Level.info;
 
   var gr =
@@ -566,17 +625,31 @@ main_() {
 
   // SudokuBrain sb =
   //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-  SudokuBrain sb = new SudokuBrain(r: 6, c: 6, grid: "2... 13..   ..3.  ...2");
-  String pz = sb.generatePuzzle(6, 6).join('');
-  SudokuBrain sb1 = new SudokuBrain(r: 6, c: 6, grid: pz);
+  //SudokuBrain sb = new SudokuBrain(r: 6, c: 6, grid: "2... 13..   ..3.  ...2");
+  // String pz = sb.generatePuzzle(6, 6).join('');
+  SudokuBrain sb1 = new SudokuBrain(r: 9, c: 9, grid: "");
+  //  ".......7..9....2.......2.........9.19.14276.3...9157........5.7.47.3..9.1........");
+
+  // SudokuBrain sb1 = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         ".1...8.............6..4..95..5...3.........6............8..........9.4.79.7..1..6");
   //sb1.parse_grid();
 
   //sb1.display();
-  sb1.solve();
-  sb1.displayPuzzle(pz.split(''));
+  // sb1.generatePuzzle(9, 9);
+//  sb1.solve();
+  sb1.displayPuzzle(sb1.getInputAsList());
+  print("INP IS ${sb1.getInputAsString()}");
   print("SOLUTION:--");
-  sb1.display();
+  sb1.solve();
+
+  print("INP IS ${sb1.getInputAsString()}");
+  print(sb1.getSolution().join(''));
+
   print("PUZZLE SOVED IN ${sb1.getAssigns} moves");
+  sb1.display();
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
