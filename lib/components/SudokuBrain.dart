@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
 
+enum Solve_Strategy { min, max_first, max_last }
+
 class SCell {
   String position;
   String value;
@@ -19,6 +21,7 @@ class SudokuBrain {
   int assigns = 0;
   bool debugMode = false;
   bool _solved = false;
+  Solve_Strategy _strategy;
 
   bool get solved => _solved;
 
@@ -28,6 +31,7 @@ class SudokuBrain {
 
   List<String> _input;
   List<String> rows;
+  List<String> _solution;
   List<String> cols;
   List<List<String>> blocks;
   List<SCell> movesList = List<SCell>();
@@ -51,12 +55,14 @@ class SudokuBrain {
   List<String> squares;
 
   SudokuBrain({int r, int c, String grid}) {
+    _strategy = Solve_Strategy.max_first;
     assigns = 0;
     _nrows = r;
     _ncols = c;
     rows = aletters.sublist(0, _nrows);
     cols = adigits.sublist(0, _ncols);
     digits = cols;
+    _solution = new List();
     computeInit();
     if (grid.isEmpty) {
       _input = cleanInput(generatePuzzle(r, c).join(''));
@@ -199,6 +205,12 @@ class SudokuBrain {
       return boardDict.values.map((e) => e.join('')).toList();
     } else
       return null;
+  }
+
+  String getSolutionAsString(LinkedHashMap<String, List<String>> v) {
+    if (v == null || v.isEmpty) return "";
+    var s = v.values.map((e) => e.join('')).toList().join('');
+    return s;
   }
 
   String getInputAsString() {
@@ -453,7 +465,12 @@ class SudokuBrain {
     final int uniqDigits = nc - 1;
     final double easyFac = 2.5 * ((nr * nc) - numEnt);
     logger.i("IN GEN PUZZ");
-    Map<String, List<String>> values = {for (String s in squares) s: digits};
+    LinkedHashMap<String, List<String>> values = LinkedHashMap();
+
+    for (var s in squares) {
+      values[s] = digits;
+    }
+
     List<String> sq = List<String>();
     sq.addAll(squares);
     sq.shuffle(new Random());
@@ -485,8 +502,11 @@ class SudokuBrain {
         //     .map((e) => sl.contains(e) ? values[e].join('') : '.')
         //     .toList();
         setInput(pz.join(''));
+        // if (passesTriage(5))
+        //   solve();
+        // else
+        //   continue;
         solve();
-
         logger.i("SOLVED IN $getAssigns");
         if (isSolved()
             //&&
@@ -498,7 +518,7 @@ class SudokuBrain {
             )
           return pz;
         else
-          break;
+          continue;
       }
     }
     return generatePuzzle(nr, nc);
@@ -515,17 +535,22 @@ class SudokuBrain {
     List<String> dlimCol = ['3', '6'];
     line += (new List<String>.generate(sqrt(_nrows).round(),
         (k) => ('-' * (width * sqrt(_ncols).round() + 1))).join('+'));
-
+    int rc = 0;
+    int cc = 0;
     rows.forEach((r) {
       cols.forEach((c) {
         String s = boardDict[r + c].join();
 
+        if (_input.elementAt((rc * _nrows) + cc) != '.') s += "i";
         stdout.write(s.padRight(width, ' ') +
             (dlimCol.isNotEmpty && dlimCol.contains(c) ? '|' : '') +
             ' ');
+        cc++;
       });
       if (dlimRow.isNotEmpty && dlimRow.contains(r)) stdout.write(line);
       print('');
+      rc++;
+      cc = 0;
     });
   }
 
@@ -564,12 +589,44 @@ class SudokuBrain {
     });
   }
 
-  LinkedHashMap<String, List<String>> solve() {
+  LinkedHashMap<String, List<String>> solve(
+      {Solve_Strategy ss = Solve_Strategy.min}) {
     assigns = 0;
-    boardDict = search(parse_grid());
+    LinkedHashMap<String, List<String>> pg = parse_grid();
+    boardDict = search(pg, min_: ss);
     _solved = isSolved();
-    return boardDict;
+    if (_solved) {
+      return boardDict;
+    } else {
+      print("Unsolvable ");
+      return null;
+    }
   }
+
+  // LinkedHashMap<String, List<String>> tsolve() {
+  //   assigns = 0;
+  //
+  //   LinkedHashMap<String, List<String>> pg = parse_grid();
+  //   boardDict = search(pg, min_: 0);
+  //   String sol = getSolutionAsString(boardDict);
+  //   _solved = isSolved();
+  //   if (_solved) {
+  //     if (sol == getSolutionAsString(search(pg, min_: 1)) &&
+  //         sol == getSolutionAsString(search(pg, min_: 2))) {
+  //       print("UNIQUE!!");
+  //
+  //       return boardDict;
+  //     } else {
+  //       print('Multiple solutions to the puzzle ');
+  //       // lets try making a puzzle
+  //       return tweakInput(_input.join(''), sol);
+  //       //   return null;
+  //     }
+  //   } else {
+  //     print("Unsolvable ");
+  //     return null;
+  //   }
+  // }
 
   void reset() {
     boardDict.clear();
@@ -578,7 +635,8 @@ class SudokuBrain {
   }
 
   LinkedHashMap<String, List<String>> search(
-      LinkedHashMap<String, List<String>> values) {
+      LinkedHashMap<String, List<String>> values,
+      {Solve_Strategy min_: Solve_Strategy.min}) {
     loggerNoStack.v("SEARCHING  $values");
     if (values == null || values.isEmpty) return null;
 
@@ -586,19 +644,45 @@ class SudokuBrain {
       boardDict = values;
       return values;
     }
+
     String minSzKey = values.keys
         .where((e) => values[e].length > 1)
-        .reduce((p, c) => values[p].length <= values[c].length ? p : c);
+        .reduce((p, c) => (min_ == Solve_Strategy.min)
+            ? (values[p].length <= values[c].length ? p : c)
+            : (min_ == Solve_Strategy.max_first)
+                ? (values[p].length >= values[c].length ? p : c)
+                : (values[p].length > values[c].length ? p : c));
+    // String minSzKey = values.keys.where((e) => values[e].length > 1).reduce(
+    //     (p, c) => min_
+    //         ? (values[p].length <= values[c].length ? p : c)
+    //         : (values[p].length >= values[c].length ? p : c));
+
     int n = values[minSzKey].length;
-    logger.i("N is $n , s is $minSzKey");
-    for (String d in values[minSzKey]) {
-      LinkedHashMap<String, List<String>> res = search(assign(
-          values.map((key, value) => MapEntry(key, value)), minSzKey, d));
+    //  loggerNoStack.wtf("N is $n , s is $minSzKey");
+
+    for (String d in (values[minSzKey])) {
+      LinkedHashMap<String, List<String>> res = search(
+          assign(new LinkedHashMap()..addAll(values), minSzKey, d),
+          min_: min_);
       if (res != null) {
         return res;
       }
     }
+
     return null;
+  }
+
+  bool passesTriage(final int maxPossibilities) {
+    parse_grid();
+    for (var v in boardDict.values) {
+      if (v.length >= maxPossibilities) return false;
+    }
+    return true;
+
+    // return boardDict.values
+    //     .where((element) => element.length > maxPossibilities)
+    //     .toList()
+    //     .isEmpty;
   }
 
   LinkedHashMap<String, List<String>> assignMove(String pos, String val) {
@@ -607,81 +691,206 @@ class SudokuBrain {
   }
 }
 
+bool checkUniqueSolution(final SudokuBrain sb, final String newInput) {
+  //if (input.isEmpty) newInput = sb.getInputAsString();
+  print(" CHECKING for:\n${sb.getInputAsString()}\n$newInput");
+  String sol = sb.getSolution().join('');
+  if (sb.isSolved()) {
+    SudokuBrain sb1 =
+        new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: newInput);
+
+    sb1.solve(ss: Solve_Strategy.max_first);
+    String sol1 = sb1.getSolution().join('');
+
+    SudokuBrain sb2 =
+        new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: newInput);
+    sb2.solve(ss: Solve_Strategy.max_last);
+    String sol2 = sb2.getSolution().join('');
+
+    if (sol == sol1 && sol == sol2) {
+      print("UNIQUE!!");
+      return true;
+    }
+  }
+  return false;
+}
+
+// Class ends here
+String tsolve(final SudokuBrain sb, String newInput) {
+  String sol = sb.getSolution().join('');
+  if (checkUniqueSolution(sb, newInput)) return newInput;
+
+  print('Multiple solutions to the puzzle ');
+  // lets try making a puzzle by picking the solution  square val in the input
+  List<String> solList = sol.split('');
+  List<String> inp = newInput.split('');
+
+  List<int> emptyValues =
+      inp.asMap().keys.where((idx) => inp[idx] != sol[idx]).toList();
+
+  // for (var idx in emptyValues) {
+  //   List<String> inList = List();
+  //   inList.addAll(inp);
+  //   inList[idx] = solList[idx];
+  //   if (checkUniqueSolution(sb, inList.join(''))) return inList.join('');
+  // }
+  for (int i = 0; i < 100; i++) {
+    emptyValues.shuffle(new Random());
+    // List<String> inList = List();
+    List<String> inList = List();
+    inList.addAll(inp);
+    List<String> tryList = swapEntries(inList, solList, emptyValues, 1);
+
+    if (checkUniqueSolution(sb, tryList.join(''))) return tryList.join('');
+  }
+  return null;
+}
+
+List<String> swapEntries(
+    List<String> i, List<String> s, List<int> emptyList, int n) {
+  List<String> outList = new List()..addAll(i);
+  for (int id = 0; id < n; id++) {
+    Random r = new Random();
+
+    int rndIdx = r.nextInt(emptyList.length);
+    outList[emptyList[rndIdx]] = s[emptyList[rndIdx]];
+  }
+  return outList;
+}
+//
+// List<String> genPuzzles({final int no, final int r, final int c}) {
+//   List<String> puzzles = new List();
+//   for (int i = 1; i < no; i++) {
+//     SudokuBrain sb1 = new SudokuBrain(r: r, c: c, grid: "");
+//
+//     sb1.displayPuzzle(sb1.getInputAsList());
+//     print("INP IS ${sb1.getInputAsString()}");
+//     print("SOLUTION:--");
+//
+//     if (sb1.tsolve() == null) {
+//       print("Can't make a puzzle. Continuging ");
+//       continue;
+//     }
+//     print("INP IS ${sb1.getInputAsString()}");
+//     print(sb1.getSolution().join(''));
+//
+//     print("PUZZLE SOLVED IN ${sb1.getAssigns} moves");
+//     sb1.display();
+//     puzzles.add(sb1.getInputAsString());
+//   }
+//
+//   print("PUZZLES ");
+//
+//   return puzzles;
+// }
+
+bool onePuzzle(int r, int c, final String g) {
+  SudokuBrain sb = new SudokuBrain(r: r, c: c, grid: g);
+  print("${sb.getInputAsString()}");
+  sb.displayPuzzle(sb.getInputAsList());
+
+  sb.display_input((sb.parse_grid()));
+  if (sb.solve(ss: Solve_Strategy.min) == null) {
+    print("No Solution ");
+    return false;
+  }
+
+  List<String> sol = sb.getSolution();
+  sb.display();
+  List<String> trySolve = new List();
+  trySolve.addAll(sol);
+  List<int> idxList =
+      List.generate(sb.getNRows() * sb.getNCols(), (index) => index);
+  idxList.shuffle(new Random());
+  int iter = 0;
+  int prevIdx = idxList.first;
+  for (int i in idxList) {
+    int n = trySolve.fold(
+        0,
+        (previousValue, e) =>
+            (sb.digits.contains(e)) ? previousValue + 1 : previousValue);
+    if (n >= (2 * sb.getNCols()) - 1 &&
+        (n <= ((2 * sb.getNCols()) + 3)) &&
+        trySolve.toSet().length >= sb.getNRows() - 1) {
+      SudokuBrain sb1 = new SudokuBrain(r: r, c: c, grid: trySolve.join(''));
+      sb1.solve(ss: Solve_Strategy.max_last);
+      if (sb1.isSolved() &&
+          sb1.getSolution().join('') == sb.getSolution().join('')) {
+        print("GOT IT !! INPUT ${trySolve.join('')}");
+        sb1.display_input(sb1.parse_grid());
+
+        return true;
+      } else
+        trySolve[prevIdx] = sol[prevIdx];
+    }
+
+    List<String> p = searchForInput(r, c, sol.join(''), trySolve.join(''), i);
+    if (p != null) trySolve = p;
+    iter++;
+    prevIdx = i;
+  }
+  print("IN ITERATAIONS $iter");
+  // if (trySolve != null && trySolve.isNotEmpty)
+  //   print(
+  //       "INPUT IS \n${sb.getInputAsString()} WellF IS \n${trySolve.join('')}");
+  print("COULD NOT FIND A WELL FORMED INPUT $trySolve");
+  return false;
+}
+
+List<String> searchForInput(int r, int c, String sol, String inp, int idx) {
+  List<String> inl = inp.split('');
+  inl[idx] = '.';
+  SudokuBrain sb = new SudokuBrain(r: r, c: c, grid: inl.join(''));
+  sb.solve();
+  if (sb.isSolved() && (sol == sb.getSolution().join('')))
+    return inl;
+  else
+    return null;
+}
+
+void tryStrategy(int r, int c) {
+  SudokuBrain sb =
+      new SudokuBrain(r: r, c: c, grid: "1.64..52.........3.1...5453...26....");
+  sb.solve();
+  SudokuBrain sb1 =
+      new SudokuBrain(r: r, c: c, grid: "1.64..52.........3.1...5453...26....");
+  sb1.solve(ss: Solve_Strategy.max_first);
+  if (sb1.getSolution().join('') == sb.getSolution().join(''))
+    print("YYOWEEWEE");
+}
+
 main() {
-  Logger.level = Level.info;
-
-  var gr =
-      '.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....'
-          .split('');
-
-  var grb =
-      '98.244..3......1........2...5...4.69..1..8..2...........3.9....6....5.....2....1.'
-          .split('');
-
-  var sm = "201002022".split('');
-  var zeroLst = new List<String>.generate(9, (index) => '0');
-  String tbt = "2... 13..   ..3.  ...2";
-  // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-
-  // SudokuBrain sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-  //SudokuBrain sb = new SudokuBrain(r: 6, c: 6, grid: "2... 13..   ..3.  ...2");
-  // String pz = sb.generatePuzzle(6, 6).join('');
-  SudokuBrain sb1 = new SudokuBrain(r: 9, c: 9, grid: "");
-  //  ".......7..9....2.......2.........9.19.14276.3...9157........5.7.47.3..9.1........");
-
-  // SudokuBrain sb1 = new SudokuBrain(
-  //     r: 9,
-  //     c: 9,
-  //     grid:
-  //         ".1...8.............6..4..95..5...3.........6............8..........9.4.79.7..1..6");
-  //sb1.parse_grid();
-
-  //sb1.display();
-  // sb1.generatePuzzle(9, 9);
-//  sb1.solve();
-  sb1.displayPuzzle(sb1.getInputAsList());
-  print("INP IS ${sb1.getInputAsString()}");
-  print("SOLUTION:--");
-  sb1.solve();
-
-  print("INP IS ${sb1.getInputAsString()}");
-  print(sb1.getSolution().join(''));
-
-  print("PUZZLE SOVED IN ${sb1.getAssigns} moves");
-  sb1.display();
-  //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
-
+  Logger.level = Level.nothing;
   // SudokuBrain sb = new SudokuBrain(
   //     r: 9,
   //     c: 9,
   //     grid:
-  //         "3...8.......7....51..............36...2..4....7...........6.13..452...........8..");
-  // sb.displayPuzzle(grb);
-
-  // sb.display();
-  // sb.parse_grid();
-  //sb.display();
-//  sb.parse_grid(grb);
-
+  //         '.....3.17.15..9..8.6.......1....7.....9...2.....5....4.......2.5..6..34.34.2.....');
   // sb.solve();
-  // sb.parse_grid();
-  // sb.display_input(sb.moveBoard);
-  //
-  // print("AFTER ASS A2->4");
-  // sb.assignMove("A2", "4");
-  // if (sb.moveBoard == null || sb.moveBoard.isEmpty)
-  //   print("ASSIGNMENT CAN'T BE MADe");
-  // else
-  //   sb.display_input(sb.moveBoard);
+  // print(checkUniqueSolution(sb,
+  //     '.....3.17.15..9..8.6.......1....7.....9...2.....5....4.......2.5..6..34.34.2.....'));
 
-  // print(sb.moveBoard);
-
-  // sb.d1();
-  // if (sb.isSolved())
-  //   sb.display();
-  // else
-  //   print("No solution for input ");
+  for (int i = 0; i < 10; i++) if (onePuzzle(6, 6, "")) break;
+  // if (x != null) print("GOT A VALID INPUT $x");
+//  tryStrategy(6, 6);
+  final int no = 10;
+  // List<String> pz = genPuzzles(no: no, r: 9, c: 9);
+  // for (var p in pz) {
+  //   print(p);
+  // }
+  // print("Found percentage ${(pz.length / no) * 100}");
+  // SudokuBrain sb = new SudokuBrain(r: 9, c: 9, grid: "");
+  // sb.solve();
+  // if (sb.isSolved()) {
+  //   // lets run it through tsolve to see if it is a unique puzzle
   //
-//  print(sb.getAssigns);
+  //   //   String i = tsolve(sb, sb.getInputAsString());
+  //   //   if (i != null && i.isNotEmpty)
+  //   //     print(
+  //   //         "UNIQUE IN  $i . Entries ${i.split('').fold(0, (previousValue, e) => e == '.' ? previousValue : previousValue + 1)}");
+  //   //   else
+  //   //     print("Could not find unique puzzle");
+  // }
+  // onePuzzle(9, 9,
+  //     "..8....7.25317986447.....2..6.4...8...7....49.42.............3.....2..9....9....8");
 }
