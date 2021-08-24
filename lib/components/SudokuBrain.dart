@@ -110,8 +110,26 @@ class SudokuBrain {
     //  logger.i("POS IS $pos  at $puzzleBoard[pos]");
     return puzzleBoard[pos];
   }
-
   bool puzzleSolved() {
+    logger.i("PUZZLE BOARD IS $puzzleBoard");
+    String p = puzzleBoard.values.reduce((value, element) => value + element );
+
+    print("BOARD-> ${p}");
+   // print("SOLUT-> ${boardDict.values.expand((element) => element).join('')} ");
+    print("SOLUT-> ${getSolution().join('')} ");
+   // res = p == getSolution().join(''))
+      print("SOLVED ITTTT");
+
+    logger.i("BOARD DICT IS $boardDict");
+    bool res = _solved  &&  ( p == getSolution().join(''));
+
+   // boardDict.keys.every((k) => boardDict[k].join('').;
+    logger.i("PUZZLESOLVED() $res _solved is $_solved");
+    return res;
+  }
+
+
+  bool puzzleSolvedStrict() {
     logger.i("PUZZLE BOARD IS $puzzleBoard");
     bool res = _solved &
         boardDict.keys.every((k) => boardDict[k].join('') == puzzleBoard[k]);
