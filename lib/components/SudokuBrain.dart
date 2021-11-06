@@ -432,6 +432,10 @@ class SudokuBrain {
       print('');
     });
   }
+  List<String> backTrackGenPuz() {
+
+
+  }
   List<String> generatePuzzle( ){
      final int numEnt = 2*_nrows -1;
      final int uniqDigits = _nrows -1;
@@ -453,7 +457,7 @@ class SudokuBrain {
        if (t.length >= numEnt && t
            .toSet()
            .length >= uniqDigits)
-         return values.values.map((e) => e.length == 1 ? e : '.')
+         return values.values.map((e) => e.length == 1 ? e : ['.'])
              .toList()
              .expand((element) => element)
              .toList();

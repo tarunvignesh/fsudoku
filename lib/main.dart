@@ -33,14 +33,14 @@ class _SudokuAppState extends State<SudokuApp> {
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
 
-  // SudokuBrain _sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-
-  SudokuBrain _sb = new SudokuBrain(
-      r: 9,
-      c: 9,
-      grid:
-          "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
+   SudokuBrain _sb =
+       // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+      new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132434215-");
+  // SudokuBrain _sb = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
   //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   List<SudokuCell> _ScreenGrid;
@@ -65,7 +65,7 @@ class _SudokuAppState extends State<SudokuApp> {
 
   @override
   void initState() {
-    //   logger.i("IN INIT STATE got sb ${_sb.getNRows()}");
+    logger.v("IN INIT STATE got sb ${_sb.getNRows()}");
     initGrid();
     TimerDeps.stopwatch.start();
     paused = false;
@@ -321,7 +321,11 @@ class _SudokuAppState extends State<SudokuApp> {
             btnCancelText: 'Dismiss',
             desc:
                 'Solved board in ${puzzleProps.movesWrong + puzzleProps.movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
-            btnCancelOnPress: () {},
+            btnCancelOnPress: () {
+              setState(() {
+                print("YO");
+              });
+            },
             btnOkOnPress: () {
               setState(() {
                 reset();
@@ -544,9 +548,12 @@ class _SudokuAppState extends State<SudokuApp> {
 
   void reset() {
     _ScreenGrid.clear();
-    TimerDeps.stopwatch.reset();
     _sb.reset();
     puzzleProps.reset();
+    TimerDeps.stopwatch.reset();
+    TimerDeps.stopwatch.start();
+
+
     initGrid();
   }
 
