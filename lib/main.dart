@@ -35,7 +35,9 @@ class _SudokuAppState extends State<SudokuApp> {
 
    SudokuBrain _sb =
        // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-      new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132434215-");
+  //    new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132-342-5-");
+  new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+
   // SudokuBrain _sb = new SudokuBrain(
   //     r: 9,
   //     c: 9,
@@ -271,10 +273,10 @@ class _SudokuAppState extends State<SudokuApp> {
 
   void _showCustomMenu(SudokuCell _cell) {
     // Let us show the pop up menu ONLY if the cell is fillable i.e
-    // - It is empty OR
-    // - Not already  specified in input
+    // - It is empty OR incorrect
     SelectedCell = _cell;
-    if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
+   // if (_sb.isInInput(_cell.index, _cell.val))  return;
+   if( _sb.isCorrectAt(_cell.pos, _cell.val)) return;
 
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
@@ -332,7 +334,6 @@ class _SudokuAppState extends State<SudokuApp> {
               });
             },
           ).show();
-          print("SOLVED YO!!");
         }
         //  context.read<SudokuBoard>().highlightCorrect(_cell);
       });

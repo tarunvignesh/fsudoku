@@ -1,3 +1,4 @@
+// dummy
 import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
@@ -13,7 +14,6 @@ class SCell {
 
 class SudokuBrain {
   int _nrows = 0;
-
   int _ncols = 0;
   int assigns = 0;
   bool debugMode = false;
@@ -118,7 +118,6 @@ class SudokuBrain {
    // print("SOLUT-> ${boardDict.values.expand((element) => element).join('')} ");
     print("SOLUT-> ${getSolution().join('')} ");
    // res = p == getSolution().join(''))
-      print("SOLVED ITTTT");
 
     logger.i("BOARD DICT IS $boardDict");
     bool res = _solved  &&  ( p == getSolution().join(''));
@@ -131,7 +130,7 @@ class SudokuBrain {
 
   bool puzzleSolvedStrict() {
     logger.i("PUZZLE BOARD IS $puzzleBoard");
-    bool res = _solved &
+    bool res = _solved &&
         boardDict.keys.every((k) => boardDict[k].join('') == puzzleBoard[k]);
     logger.i("PUZZLESOLVED() $res _solved is $_solved");
     return res;
@@ -581,9 +580,9 @@ main() {
   String tbt = "2... 13..   ..3.  ...2";
   // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
 
-  // SudokuBrain sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-  SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
+   SudokuBrain sb =
+       new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+ // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
   print(sb.generatePuzzle());
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 

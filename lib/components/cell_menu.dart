@@ -50,8 +50,8 @@ class NumberTapEntryState extends State<NumberTapEntry> {
   List<Widget> retChildren() {
     List<Expanded> lst = List<Expanded>.generate(
         nrows, (index) => newPopupCell((index + 1).toString()))
-      ..add(newPopupCell('?'))
-      ..add(newPopupCell('X'));
+      ..add(newPopupCell('?'));
+    //  ..add(newPopupCell('X'));
     // if (sc.val != '.' && sc.notedVals != null) {
     //   sc.notedVals.forEach((e) {
     //     lst.removeAt(int.parse(e) - 1);
