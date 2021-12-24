@@ -32,9 +32,15 @@ class _SudokuAppState extends State<SudokuApp> {
   bool paused = false;
   SudokuCell SelectedCell;
   PuzzleBoardProps puzzleProps;
-  SudokuBrain _sb = new SudokuBrain(r: 6, c: 6, grid: "");
-  // SudokuBrain _sb =
-  //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+  // SudokuBrain _sb = new SudokuBrain(r: 6, c: 6, grid: "");
+  SudokuBrain _sb =
+      //     new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");//    new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132-342-5-");
+      // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+      new SudokuBrain(
+          r: 9,
+          c: 9,
+          grid:
+              ".198......5...62....2..41..79.....2.5.63........4...16......74......9...9.35.....");
   // SudokuBrain _sb = new SudokuBrain(
   //     r: 9,
   //     c: 9,
@@ -64,7 +70,6 @@ class _SudokuAppState extends State<SudokuApp> {
 
   @override
   void initState() {
-    //   logger.i("IN INIT STATE got sb ${_sb.getNRows()}");
     initGrid();
     TimerDeps.stopwatch.start();
     paused = false;
@@ -271,11 +276,10 @@ class _SudokuAppState extends State<SudokuApp> {
 
   void _showCustomMenu(SudokuCell _cell) {
     // Let us show the pop up menu ONLY if the cell is fillable i.e
-    // - It is empty OR
-    // - Not already  specified in input
+    // - It is empty OR incorrect
     SelectedCell = _cell;
-    if (_sb.isInInput(_cell.index, _cell.val) ||
-        _sb.isCorrectAt(_cell.pos, _cell.val)) return;
+    // if (_sb.isInInput(_cell.index, _cell.val))  return;
+    if (_sb.isCorrectAt(_cell.pos, _cell.val)) return;
 
     BuildContext context = _gk.currentContext;
     final RenderBox overlay = Overlay.of(context).context.findRenderObject();
@@ -328,7 +332,6 @@ class _SudokuAppState extends State<SudokuApp> {
               });
             },
           ).show();
-          print("SOLVED YO!!");
         }
         //  context.read<SudokuBoard>().highlightCorrect(_cell);
       });
@@ -499,7 +502,7 @@ class _SudokuAppState extends State<SudokuApp> {
 
   void initGrid() {
     //first lets solve it internally!
-    _sb.solve();
+    _sb.solve(ss: Solve_Strategy.max_first);
     _sb.display();
     logger.i("${_sb.boardDict}");
 
@@ -509,7 +512,8 @@ class _SudokuAppState extends State<SudokuApp> {
       ;
       throw ('Cannot not solve the input grid ');
     }
-    logger.i("WE NOW HAVE GRID ${_sb.getInputAsString()}} with solution ");
+    logger.i(
+        "WE NOW HAVE GRID ${_sb.getInputAsString()}} with solution ${_sb.getSolution().join('')}");
     _sb.display();
     _DragList = List();
     _ScreenGrid = List.generate(_sb.getNRows() * _sb.getNCols(), (index) {

@@ -335,24 +335,15 @@ class SudokuBrain {
       Map<String, List<String>> values, String s, String d) {
     List<String> other_values =
         values[s].where((element) => element != d).toList();
-    assigns++;
     logger.d('Assigning $d at pos $s i.e eliminating ');
     logger.d('Other values ${other_values}');
     bool ret_null = false;
     for (var d3 in other_values) {
       if (eliminate(values, s, d3) == null) return null;
     }
+    if (values != null) assigns++;
+
     return values;
-    // List<bool> x = other_values.map((d3) {
-    //   var er = eliminate(values, s, d3);
-    //   return (er == null ? false : true);
-    // }).toList();
-    //
-    // if (x.every((e) => e != false))
-    //   return values;
-    // else {
-    //   return null;
-    // }
   }
 
   Map<String, List<String>> eliminate(
@@ -487,35 +478,16 @@ class SudokuBrain {
           .where((s) => values[s].length == 1)
           .map((e) => values[e].join(''))
           .toList();
-      logger.i("T IS $t");
-      if (t.length >= numEnt && t.toSet().length >= uniqDigits) {
+      //  print("T IS $t");
+      if (t.length >= numEnt) {
         List<String> pz =
             values.values.map((e) => e.length == 1 ? e.join('') : '.').toList();
 
-        // List<String> onlyOne =
-        //     values.keys.toList().where((e) => values[e].length == 1).toList();
-        // onlyOne.shuffle(new Random());
-        // List<String> others =
-        //     values.keys.toList().where((e) => values[e].length > 1).toList();
-        // List<String> sl = onlyOne.sublist(0, (nr / 2).round());
-        // List<String> pz = values.keys
-        //     .map((e) => sl.contains(e) ? values[e].join('') : '.')
-        //     .toList();
-        setInput(pz.join(''));
-        // if (passesTriage(5))
-        //   solve();
-        // else
-        //   continue;
-        solve();
-        logger.i("SOLVED IN $getAssigns");
-        if (isSolved()
-            //&&
-            // values.values
-            //         .where((e) => e.length > 1)
-            //         .fold(0, (pv, el) => pv + el.length) <=
-            //     easyFac
+        SudokuBrain sTemp = new SudokuBrain(r: nr, c: nc, grid: pz.join(''));
 
-            )
+        sTemp.solve();
+        //  logger.i("SOLVED IN $sTemp.get");
+        if (sTemp.isSolved())
           return pz;
         else
           continue;
@@ -672,19 +644,6 @@ class SudokuBrain {
     return null;
   }
 
-  bool passesTriage(final int maxPossibilities) {
-    parse_grid();
-    for (var v in boardDict.values) {
-      if (v.length >= maxPossibilities) return false;
-    }
-    return true;
-
-    // return boardDict.values
-    //     .where((element) => element.length > maxPossibilities)
-    //     .toList()
-    //     .isEmpty;
-  }
-
   LinkedHashMap<String, List<String>> assignMove(String pos, String val) {
     moveBoard = assign(moveBoard, pos, val);
     return moveBoard;
@@ -716,80 +675,75 @@ bool checkUniqueSolution(final SudokuBrain sb, final String newInput) {
 }
 
 // Class ends here
-String tsolve(final SudokuBrain sb, String newInput) {
+
+// Test a solution by solving inp and compare if sol(inp)== s. If so return
+// Do this by testing with max_last,max_first strategies . They should all result in same solution.
+
+String testSolution(SudokuBrain orig, String inp, String s) {
+  SudokuBrain p =
+      new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
+  p.solve(ss: Solve_Strategy.max_last);
+
+  SudokuBrain q =
+      new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
+  q.solve(ss: Solve_Strategy.max_first);
+
+  if (p.isSolved() &&
+      q.isSolved() &&
+      p.getSolution().join('') == s &&
+      q.getSolution().join('') == s)
+    return s;
+  else {
+    print("We have different solutions");
+    return '';
+  }
+}
+
+void backtrack(SudokuBrain sb) {
+  List<String> inp = sb.getInputAsList();
   String sol = sb.getSolution().join('');
-  if (checkUniqueSolution(sb, newInput)) return newInput;
+  int nsol = 0;
+  Map<String, int> inpList = new Map<String, int>();
+  List<int> idx =
+      List.generate(sb.getNRows() * sb.getNCols(), (index) => index).toList();
 
-  print('Multiple solutions to the puzzle ');
-  // lets try making a puzzle by picking the solution  square val in the input
-  List<String> solList = sol.split('');
-  List<String> inp = newInput.split('');
+  idx.shuffle(new Random());
+  List<String> trySolve = new List<String>();
+  trySolve.addAll(sb.getSolution());
 
-  List<int> emptyValues =
-      inp.asMap().keys.where((idx) => inp[idx] != sol[idx]).toList();
-
-  // for (var idx in emptyValues) {
-  //   List<String> inList = List();
-  //   inList.addAll(inp);
-  //   inList[idx] = solList[idx];
-  //   if (checkUniqueSolution(sb, inList.join(''))) return inList.join('');
-  // }
-  for (int i = 0; i < 100; i++) {
-    emptyValues.shuffle(new Random());
-    // List<String> inList = List();
-    List<String> inList = List();
-    inList.addAll(inp);
-    List<String> tryList = swapEntries(inList, solList, emptyValues, 1);
-
-    if (checkUniqueSolution(sb, tryList.join(''))) return tryList.join('');
+  for (int i in idx) {
+    String c = trySolve[i];
+    // Remove a random char
+    trySolve[i] = '.';
+    // test for puzzle solution with that ch
+    String testi = trySolve.join('');
+    if (testSolution(sb, testi, sol).isNotEmpty) {
+      inpList[testi] = trySolve.fold(
+          0,
+          (previousValue, e) =>
+              (sb.digits.contains(e)) ? previousValue + 1 : previousValue);
+    } else {
+      // put back char since it does not lead to a puzzle with solution sol
+      trySolve[i] = c;
+    }
   }
-  return null;
+  print(" ORIG SOLUTION IS ${sol} for input ${inp} solved in ${sb.getAssigns}");
+  inpList.forEach((key, value) {
+    if (value >= (2 * sb.getNRows() - 1) && value <= (4 * sb.getNRows())) {
+      SudokuBrain sq =
+          new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: key);
+      sq.solve();
+      print("${key}->${value} solved in ${sq.getAssigns}");
+    }
+  });
 }
-
-List<String> swapEntries(
-    List<String> i, List<String> s, List<int> emptyList, int n) {
-  List<String> outList = new List()..addAll(i);
-  for (int id = 0; id < n; id++) {
-    Random r = new Random();
-
-    int rndIdx = r.nextInt(emptyList.length);
-    outList[emptyList[rndIdx]] = s[emptyList[rndIdx]];
-  }
-  return outList;
-}
-//
-// List<String> genPuzzles({final int no, final int r, final int c}) {
-//   List<String> puzzles = new List();
-//   for (int i = 1; i < no; i++) {
-//     SudokuBrain sb1 = new SudokuBrain(r: r, c: c, grid: "");
-//
-//     sb1.displayPuzzle(sb1.getInputAsList());
-//     print("INP IS ${sb1.getInputAsString()}");
-//     print("SOLUTION:--");
-//
-//     if (sb1.tsolve() == null) {
-//       print("Can't make a puzzle. Continuging ");
-//       continue;
-//     }
-//     print("INP IS ${sb1.getInputAsString()}");
-//     print(sb1.getSolution().join(''));
-//
-//     print("PUZZLE SOLVED IN ${sb1.getAssigns} moves");
-//     sb1.display();
-//     puzzles.add(sb1.getInputAsString());
-//   }
-//
-//   print("PUZZLES ");
-//
-//   return puzzles;
-// }
 
 bool onePuzzle(int r, int c, final String g) {
   SudokuBrain sb = new SudokuBrain(r: r, c: c, grid: g);
   print("${sb.getInputAsString()}");
-  sb.displayPuzzle(sb.getInputAsList());
+  // sb.displayPuzzle(sb.getInputAsList());
 
-  sb.display_input((sb.parse_grid()));
+  //sb.display_input((sb.parse_grid()));
   if (sb.solve(ss: Solve_Strategy.min) == null) {
     print("No Solution ");
     return false;
@@ -797,100 +751,13 @@ bool onePuzzle(int r, int c, final String g) {
 
   List<String> sol = sb.getSolution();
   sb.display();
-  List<String> trySolve = new List();
-  trySolve.addAll(sol);
-  List<int> idxList =
-      List.generate(sb.getNRows() * sb.getNCols(), (index) => index);
-  idxList.shuffle(new Random());
-  int iter = 0;
-  int prevIdx = idxList.first;
-  for (int i in idxList) {
-    int n = trySolve.fold(
-        0,
-        (previousValue, e) =>
-            (sb.digits.contains(e)) ? previousValue + 1 : previousValue);
-    if (n >= (2 * sb.getNCols()) - 1 &&
-        (n <= ((2 * sb.getNCols()) + 3)) &&
-        trySolve.toSet().length >= sb.getNRows() - 1) {
-      SudokuBrain sb1 = new SudokuBrain(r: r, c: c, grid: trySolve.join(''));
-      sb1.solve(ss: Solve_Strategy.max_last);
-      if (sb1.isSolved() &&
-          sb1.getSolution().join('') == sb.getSolution().join('')) {
-        print("GOT IT !! INPUT ${trySolve.join('')}");
-        sb1.display_input(sb1.parse_grid());
-
-        return true;
-      } else
-        trySolve[prevIdx] = sol[prevIdx];
-    }
-
-    List<String> p = searchForInput(r, c, sol.join(''), trySolve.join(''), i);
-    if (p != null) trySolve = p;
-    iter++;
-    prevIdx = i;
-  }
-  print("IN ITERATAIONS $iter");
-  // if (trySolve != null && trySolve.isNotEmpty)
-  //   print(
-  //       "INPUT IS \n${sb.getInputAsString()} WellF IS \n${trySolve.join('')}");
-  print("COULD NOT FIND A WELL FORMED INPUT $trySolve");
-  return false;
-}
-
-List<String> searchForInput(int r, int c, String sol, String inp, int idx) {
-  List<String> inl = inp.split('');
-  inl[idx] = '.';
-  SudokuBrain sb = new SudokuBrain(r: r, c: c, grid: inl.join(''));
-  sb.solve();
-  if (sb.isSolved() && (sol == sb.getSolution().join('')))
-    return inl;
-  else
-    return null;
-}
-
-void tryStrategy(int r, int c) {
-  SudokuBrain sb =
-      new SudokuBrain(r: r, c: c, grid: "1.64..52.........3.1...5453...26....");
-  sb.solve();
-  SudokuBrain sb1 =
-      new SudokuBrain(r: r, c: c, grid: "1.64..52.........3.1...5453...26....");
-  sb1.solve(ss: Solve_Strategy.max_first);
-  if (sb1.getSolution().join('') == sb.getSolution().join(''))
-    print("YYOWEEWEE");
+  backtrack(sb);
+  if (true == true) return true;
 }
 
 main() {
   Logger.level = Level.nothing;
-  // SudokuBrain sb = new SudokuBrain(
-  //     r: 9,
-  //     c: 9,
-  //     grid:
-  //         '.....3.17.15..9..8.6.......1....7.....9...2.....5....4.......2.5..6..34.34.2.....');
-  // sb.solve();
-  // print(checkUniqueSolution(sb,
-  //     '.....3.17.15..9..8.6.......1....7.....9...2.....5....4.......2.5..6..34.34.2.....'));
 
-  for (int i = 0; i < 10; i++) if (onePuzzle(6, 6, "")) break;
-  // if (x != null) print("GOT A VALID INPUT $x");
-//  tryStrategy(6, 6);
+  onePuzzle(9, 9, "");
   final int no = 10;
-  // List<String> pz = genPuzzles(no: no, r: 9, c: 9);
-  // for (var p in pz) {
-  //   print(p);
-  // }
-  // print("Found percentage ${(pz.length / no) * 100}");
-  // SudokuBrain sb = new SudokuBrain(r: 9, c: 9, grid: "");
-  // sb.solve();
-  // if (sb.isSolved()) {
-  //   // lets run it through tsolve to see if it is a unique puzzle
-  //
-  //   //   String i = tsolve(sb, sb.getInputAsString());
-  //   //   if (i != null && i.isNotEmpty)
-  //   //     print(
-  //   //         "UNIQUE IN  $i . Entries ${i.split('').fold(0, (previousValue, e) => e == '.' ? previousValue : previousValue + 1)}");
-  //   //   else
-  //   //     print("Could not find unique puzzle");
-  // }
-  // onePuzzle(9, 9,
-  //     "..8....7.25317986447.....2..6.4...8...7....49.42.............3.....2..9....9....8");
 }
