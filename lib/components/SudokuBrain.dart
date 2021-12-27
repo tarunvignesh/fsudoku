@@ -2,8 +2,9 @@ import 'dart:collection';
 import 'dart:io';
 import 'dart:math';
 import 'package:logger/logger.dart';
+import 'package:tuple/tuple.dart';
 
-enum Solve_Strategy { min, max_first, max_last }
+enum Solve_Strategy { min, max_first, max_last, rnd, mid_lseq }
 
 class SCell {
   String position;
@@ -66,6 +67,7 @@ class SudokuBrain {
     computeInit();
     if (grid.isEmpty) {
       _input = cleanInput(generatePuzzle(r, c).join(''));
+      //random_puzzle(1));
     } else
       _input = cleanInput(grid);
   }
@@ -332,7 +334,8 @@ class SudokuBrain {
   }
 
   LinkedHashMap<String, List<String>> assign(
-      Map<String, List<String>> values, String s, String d) {
+      Map<String, List<String>> values, String s, String d,
+      [bool cnt = true]) {
     List<String> other_values =
         values[s].where((element) => element != d).toList();
     logger.d('Assigning $d at pos $s i.e eliminating ');
@@ -341,7 +344,7 @@ class SudokuBrain {
     for (var d3 in other_values) {
       if (eliminate(values, s, d3) == null) return null;
     }
-    if (values != null) assigns++;
+    if (cnt && (values != null || values.isNotEmpty)) assigns++;
 
     return values;
   }
@@ -405,11 +408,13 @@ class SudokuBrain {
     }
 
     for (MapEntry me in grid_values().entries) {
-      if (digits.contains(me.value))
-        moveBoard[me.key] = List<String>.generate(1, (index) => me.value);
-
-      if (digits.contains(me.value) && assign(values, me.key, me.value) == null)
-        return null;
+      if (_input.contains(me.value)) {
+        List<String> t = List<String>.generate(1, (index) => me.value);
+        moveBoard[me.key] = t;
+        //   values[me.key] = t;
+      }
+      if (digits.contains(me.value) &&
+          assign(values, me.key, me.value, false) == null) return null;
     }
 
     boardDict = values;
@@ -561,6 +566,47 @@ class SudokuBrain {
     });
   }
 
+  String random_puzzle([int stopLimit = 1]) {
+    List<String> inp = [];
+
+    void gen() {
+      if (inp.length == stopLimit) return;
+
+      List<String> sq = [];
+      sq.addAll(squares);
+      sq.shuffle(new Random());
+
+      LinkedHashMap<String, List<String>> values = new LinkedHashMap();
+      for (String s in squares) {
+        values[s] = digits;
+      }
+      for (String s in sq) {
+        if (assign(
+                values, s, values[s][new Random().nextInt(values[s].length)]) ==
+            null) break;
+        List<String> t = squares
+            .map((s) => values[s].length == 1 ? values[s].join('') : '.')
+            .toList();
+        if (t.where((element) => digits.contains(element)).length >=
+                2 * _nrows - 1 &&
+            t.toSet().length >= _nrows) if (inp.length == stopLimit)
+          return;
+        else
+          inp.add(t.join(''));
+      }
+      gen();
+    }
+
+    gen();
+
+    print("We have rnd puzzles ");
+    inp.forEach((element) {
+      print(
+          "${element} len -> ${element.split('').fold(0, (p, e) => digits.contains(e) ? p + 1 : p)}");
+    });
+    return inp.first;
+  }
+
   LinkedHashMap<String, List<String>> solve(
       {Solve_Strategy ss = Solve_Strategy.min}) {
     assigns = 0;
@@ -606,6 +652,48 @@ class SudokuBrain {
     movesList.clear();
   }
 
+// Returns index of start of longest seq
+  Tuple2<int, int> longestSeq(
+      String char, LinkedHashMap<String, List<String>> vals) {
+    int mrun = 0;
+    int lmrun = 0;
+    int end = 0;
+    int i = 0;
+    int findMaxRun(p, e) {
+      if (e == 1 && lmrun == 0) lmrun = 1;
+
+      if (p == 1 && e == 1) {
+        lmrun++;
+      } else {
+        // remember the last max run
+        if ((mrun < lmrun)) {
+          end = i;
+          mrun = lmrun;
+        }
+        lmrun = 0;
+      }
+      i++;
+      return e;
+    }
+
+    vals.keys
+        .map((element) => ((vals[element].length > 1) ||
+                (vals[element].length == 1 && vals[element].first == char))
+            ? 1
+            : 0)
+        .fold(0, findMaxRun);
+
+    //   if (mrun >= 1) mrun++;
+    if (lmrun > mrun) {
+      mrun = lmrun;
+      end = i;
+    }
+
+    print(
+        "GOT RUN OF LENGTH ${mrun} starting at ${end - (mrun == 1 ? 0 : mrun)} ");
+    return Tuple2<int, int>(end - (mrun == 1 ? 0 : mrun), mrun);
+  }
+
   LinkedHashMap<String, List<String>> search(
       LinkedHashMap<String, List<String>> values,
       {Solve_Strategy min_: Solve_Strategy.min}) {
@@ -616,19 +704,31 @@ class SudokuBrain {
       boardDict = values;
       return values;
     }
+    String minSzKey = values.keys.first;
 
-    String minSzKey = values.keys
-        .where((e) => values[e].length > 1)
-        .reduce((p, c) => (min_ == Solve_Strategy.min)
-            ? (values[p].length <= values[c].length ? p : c)
-            : (min_ == Solve_Strategy.max_first)
-                ? (values[p].length >= values[c].length ? p : c)
-                : (values[p].length > values[c].length ? p : c));
+    // pick a random
+    if (min_ == Solve_Strategy.mid_lseq) {
+      var l = values.keys.where((element) => values[element].length > 1);
+      Tuple2<int, int> t = longestSeq('.', values);
+      minSzKey = values.keys.elementAt(t.item1 + (t.item2 ~/ 2));
+    }
+    if (min_ == Solve_Strategy.rnd) {
+      minSzKey = values.keys
+          .where((element) => element.length > 1)
+          .elementAt(new Random().nextInt(values.keys.length));
+    } else {
+      minSzKey = values.keys
+          .where((e) => values[e].length > 1)
+          .reduce((p, c) => (min_ == Solve_Strategy.min)
+              ? (values[p].length <= values[c].length ? p : c)
+              : (min_ == Solve_Strategy.max_first)
+                  ? (values[p].length >= values[c].length ? p : c)
+                  : (values[p].length > values[c].length ? p : c));
+    }
     // String minSzKey = values.keys.where((e) => values[e].length > 1).reduce(
     //     (p, c) => min_
     //         ? (values[p].length <= values[c].length ? p : c)
     //         : (values[p].length >= values[c].length ? p : c));
-
     int n = values[minSzKey].length;
     //  loggerNoStack.wtf("N is $n , s is $minSzKey");
 
@@ -679,6 +779,7 @@ bool checkUniqueSolution(final SudokuBrain sb, final String newInput) {
 // Test a solution by solving inp and compare if sol(inp)== s. If so return
 // Do this by testing with max_last,max_first strategies . They should all result in same solution.
 
+String improvePuzzle(String sol, SudokuBrain sb) {}
 String testSolution(SudokuBrain orig, String inp, String s) {
   SudokuBrain p =
       new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
@@ -688,10 +789,21 @@ String testSolution(SudokuBrain orig, String inp, String s) {
       new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
   q.solve(ss: Solve_Strategy.max_first);
 
+  SudokuBrain rn =
+      new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
+  rn.solve(ss: Solve_Strategy.rnd);
+  SudokuBrain ls =
+      new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
+  ls.solve(ss: Solve_Strategy.mid_lseq);
+
   if (p.isSolved() &&
       q.isSolved() &&
+      rn.isSolved() &&
+      ls.isSolved() &&
       p.getSolution().join('') == s &&
-      q.getSolution().join('') == s)
+      q.getSolution().join('') == s &&
+      rn.getSolution().join('') == s &&
+      ls.getSolution().join('') == s)
     return s;
   else {
     print("We have different solutions");
@@ -729,11 +841,18 @@ void backtrack(SudokuBrain sb) {
   }
   print(" ORIG SOLUTION IS ${sol} for input ${inp} solved in ${sb.getAssigns}");
   inpList.forEach((key, value) {
-    if (value >= (2 * sb.getNRows() - 1) && value <= (4 * sb.getNRows())) {
-      SudokuBrain sq =
-          new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: key);
+    SudokuBrain sq =
+        new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: key);
+    if (value >= (2 * sb.getNRows() - 1) &&
+        value <= (3 * sb.getNRows()) &&
+        key
+                .split('')
+                .where((element) => sq.digits.contains(element))
+                .toSet()
+                .length >
+            sb.getNRows() - 1) {
       sq.solve();
-      print("${key}->${value} solved in ${sq.getAssigns}");
+      print("${key}->${value} ");
     }
   });
 }
@@ -752,12 +871,48 @@ bool onePuzzle(int r, int c, final String g) {
   List<String> sol = sb.getSolution();
   sb.display();
   backtrack(sb);
-  if (true == true) return true;
+
+  return true;
+}
+
+void testLongSeq() {
+  List<String> g =
+      //  "268751349379248651415369287756812934894635712132974865681597423527..319694312657."
+      //'..78..64...........6.....18.5..7...........26193.2..5...6..18...7...23..93...5.7.'
+      //  '.....4..997..16.3.4..9...6.....4.5.3..2......1...6..9...62.5.8.3......52.1.......'
+      "2687513493792486514153692877568129348946357121329748656815974235274831969431265.9"
+          .split('');
+
+  var it = g.iterator;
+  LinkedHashMap<String, List<String>> m = LinkedHashMap();
+  SudokuBrain s = new SudokuBrain(r: 9, c: 9, grid: g.join(''));
+
+  for (var elem in s.squares) {
+    if (it.moveNext()) {
+      m[elem] = new List<String>();
+      m[elem].add(it.current);
+    }
+  }
+  int idx = 0;
+  m.keys.forEach((k) {
+    print("idx ${idx} ${k}-> ${m[k]}");
+    idx++;
+  });
+  s.longestSeq('.', m);
 }
 
 main() {
   Logger.level = Level.nothing;
-
+  //testLongSeq();
   onePuzzle(9, 9, "");
+
+  // // SudokuBrain s = new SudokuBrain(
+  //     r: 9,
+  //     c: 9,
+  //     grid:
+  //         "26875134937924865141536928775681293489463571213297486568159742352748319694312657.");
+  // s.solve();
+  // s.display();
+  // print("ASSIGNS is ${s.getAssigns}");
   final int no = 10;
 }
