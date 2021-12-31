@@ -707,28 +707,42 @@ class SudokuBrain {
     String minSzKey = values.keys.first;
 
     // pick a random
-    if (min_ == Solve_Strategy.mid_lseq) {
-      var l = values.keys.where((element) => values[element].length > 1);
-      Tuple2<int, int> t = longestSeq('.', values);
-      minSzKey = values.keys.elementAt(t.item1 + (t.item2 ~/ 2));
+    List<String> gtThanOneList =
+        values.keys.where((element) => values[element].length > 1).toList();
+
+    switch (min_) {
+      case Solve_Strategy.mid_lseq:
+        {
+          Tuple2<int, int> t = longestSeq('.', values);
+          minSzKey = values.keys.elementAt(t.item1 + (t.item2 ~/ 2));
+          break;
+        }
+      case Solve_Strategy.rnd:
+        {
+          minSzKey = gtThanOneList
+              .elementAt(new Random().nextInt(gtThanOneList.length));
+          break;
+        }
+      case Solve_Strategy.min:
+        {
+          minSzKey = gtThanOneList
+              .reduce((p, c) => values[p].length <= values[c].length ? p : c);
+
+          break;
+        }
+      case Solve_Strategy.max_first:
+        {
+          minSzKey = gtThanOneList
+              .reduce((p, c) => values[p].length >= values[c].length ? p : c);
+          break;
+        }
+      case Solve_Strategy.max_last:
+        {
+          minSzKey = gtThanOneList
+              .reduce((p, c) => values[p].length > values[c].length ? p : c);
+          break;
+        }
     }
-    if (min_ == Solve_Strategy.rnd) {
-      minSzKey = values.keys
-          .where((element) => element.length > 1)
-          .elementAt(new Random().nextInt(values.keys.length));
-    } else {
-      minSzKey = values.keys
-          .where((e) => values[e].length > 1)
-          .reduce((p, c) => (min_ == Solve_Strategy.min)
-              ? (values[p].length <= values[c].length ? p : c)
-              : (min_ == Solve_Strategy.max_first)
-                  ? (values[p].length >= values[c].length ? p : c)
-                  : (values[p].length > values[c].length ? p : c));
-    }
-    // String minSzKey = values.keys.where((e) => values[e].length > 1).reduce(
-    //     (p, c) => min_
-    //         ? (values[p].length <= values[c].length ? p : c)
-    //         : (values[p].length >= values[c].length ? p : c));
     int n = values[minSzKey].length;
     //  loggerNoStack.wtf("N is $n , s is $minSzKey");
 
