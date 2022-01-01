@@ -803,20 +803,22 @@ String testSolution(SudokuBrain orig, String inp, String s) {
       new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
   q.solve(ss: Solve_Strategy.max_first);
 
-  SudokuBrain rn =
-      new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
-  rn.solve(ss: Solve_Strategy.rnd);
+  SudokuBrain rn;
+  for (int i = 0; i < 10; i++) {
+    rn = new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
+    rn.solve(ss: Solve_Strategy.rnd);
+
+    if (rn.isSolved() && rn.getSolution().join() != s) return '';
+  }
   SudokuBrain ls =
       new SudokuBrain(r: orig.getNRows(), c: orig.getNCols(), grid: inp);
   ls.solve(ss: Solve_Strategy.mid_lseq);
 
   if (p.isSolved() &&
       q.isSolved() &&
-      rn.isSolved() &&
       ls.isSolved() &&
       p.getSolution().join('') == s &&
       q.getSolution().join('') == s &&
-      rn.getSolution().join('') == s &&
       ls.getSolution().join('') == s)
     return s;
   else {
@@ -854,6 +856,7 @@ void backtrack(SudokuBrain sb) {
     }
   }
   print(" ORIG SOLUTION IS ${sol} for input ${inp} solved in ${sb.getAssigns}");
+  if (inpList.isEmpty) print("Puzzle could not be generated");
   inpList.forEach((key, value) {
     SudokuBrain sq =
         new SudokuBrain(r: sb.getNRows(), c: sb.getNCols(), grid: key);
