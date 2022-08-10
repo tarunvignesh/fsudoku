@@ -11,6 +11,12 @@ class SCell {
       o is SCell && this.position == o.position && this.value == o.value;
   int get hashCode => position.hashCode ^ value.hashCode;
 }
+enum Solve_Strategy {
+   MIN,
+   MAX,
+  RANDOM
+
+}
 
 class SudokuBrain {
   int _nrows = 0;
@@ -18,7 +24,8 @@ class SudokuBrain {
   int assigns = 0;
   bool debugMode = false;
   bool _solved = false;
-
+  Solve_Strategy _solve_strategy = Solve_Strategy.MIN;
+  bool _genMode = false;
   bool get solved => _solved;
 
   set solved(bool value) {
@@ -47,21 +54,33 @@ class SudokuBrain {
   Map<String, List<List<String>>> units;
   var peers;
   List<String> squares;
-  SudokuBrain({int r, int c, String grid}) {
-    _input = grid
+  SudokuBrain({int r, int c, String grid , bool gm = false}) {
+
+
+    assigns = 0;
+    _nrows = r;
+    _ncols = c;
+    _genMode = gm;
+
+    rows = aletters.sublist(0, _nrows);
+    cols = adigits.sublist(0, _ncols);
+    digits = cols;
+    computeInit();
+   if(grid.isEmpty)
+     _input= List<String>.generate(_ncols * _nrows, (index) => '.');
+   else
+      _input = filterInput(grid);
+    _solve_strategy = _genMode && grid.isEmpty ? Solve_Strategy.RANDOM : Solve_Strategy.MIN;
+
+  }
+  List<String> filterInput( String g)
+  {
+    return  g
         .toString()
         .replaceAll(new RegExp(r"\s+\b|\b\s|\s|\b"), "")
         .replaceAll(new RegExp(r"0"), ".")
         .replaceAll(new RegExp(r"-"), ".")
         .split('');
-
-    assigns = 0;
-    _nrows = r;
-    _ncols = c;
-    rows = aletters.sublist(0, _nrows);
-    cols = adigits.sublist(0, _ncols);
-    digits = cols;
-    computeInit();
   }
   List<String> getInputAsList() {
     return _input;
@@ -307,7 +326,8 @@ class SudokuBrain {
             ? c
             : throw ('Bad input because of entry $c'))
         .toList();
-    if (chars.length != _nrows * _ncols)
+    if (chars.length != _nrows * _ncols
+         )
       throw 'Bad grid input. Num entries is ${chars.length}';
     int idx = 0;
     Map<String, String> m = {for (var elem in squares) elem: chars[idx++]};
@@ -436,7 +456,8 @@ class SudokuBrain {
 
   }
   List<String> generatePuzzle( ){
-     final int numEnt = 2*_nrows -1;
+     final int numEnt = 2*_nrows -1;  // Min number of provided filled in input squares
+
      final int uniqDigits = _nrows -1;
      logger.i("IN GEN PUZZ");
      Map<String, List<String>> values = {for (String s in squares) s: digits};
@@ -455,12 +476,14 @@ class SudokuBrain {
        logger.i("T IS $t");
        if (t.length >= numEnt && t
            .toSet()
-           .length >= uniqDigits)
+           .length >= uniqDigits) {
+         logger.i("RETURNING VALUES $values");
          return values.values.map((e) => e.length == 1 ? e : ['.'])
              .toList()
              .expand((element) => element)
              .toList();
-     }
+       }
+        }
      return generatePuzzle();
 
 
@@ -543,11 +566,40 @@ class SudokuBrain {
       boardDict = values;
       return values;
     }
-    Map<int, String> ord = {
+
+
+    Map<String, int> ord = {
       for (var k in values.keys)
-        if (values[k].length > 1) values[k].length: k
+        if (values[k].length > 1)  k:values[k].length
     };
-    String minSzKey = ord[ord.keys.reduce(min)];
+    Random rnd = new Random();
+
+    String minSzKey = "";
+    switch (_solve_strategy)  {
+
+      case Solve_Strategy.MIN : {
+    Map<int, String> ord = {
+    for (var k in values.keys)
+    if (values[k].length > 1) values[k].length: k
+    };
+
+        minSzKey = ord[ord.keys.reduce(min)];
+    }
+      break;
+     case (Solve_Strategy.RANDOM) : {
+    Map<String, int> ord = {
+      for (var k in values.keys)
+        if (values[k].length > 1)  k :values[k].length
+    };
+    logger.i(" ORED IS $ord \n values $values" );
+
+    minSzKey = ord.keys.toList()[rnd.nextInt(ord.length)];
+
+    }
+    break;
+    }
+    // minSzKey = ord[ord.keys.reduce(min)];
+
     for (String d in values[minSzKey]) {
       Map<String, List<String>> res = search(assign(
           values.map((key, value) => MapEntry(key, value)), minSzKey, d));
