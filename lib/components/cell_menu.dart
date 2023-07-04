@@ -7,8 +7,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 class NumberTapEntry extends PopupMenuEntry<String> {
   @override
   double height = 100;
-  int nrows;
-  SudokuCell sc;
+  int nrows = 0;
+  SudokuCell sc =SudokuCell(0, '', '', Colors.lightGreen, Colors.lightGreen,  0.0, Set());
   // height doesn't matter, as long as we are not giving
   // initialValue to showMenu().
   NumberTapEntry(int n, SudokuCell c) {
@@ -16,15 +16,15 @@ class NumberTapEntry extends PopupMenuEntry<String> {
     sc = c;
   }
   @override
-  bool represents(String n) => n.length < 2;
+  bool represents(String? n) => n!.length < 2;
 
   @override
   NumberTapEntryState createState() => NumberTapEntryState(nrows, sc);
 }
 
 class NumberTapEntryState extends State<NumberTapEntry> {
-  int nrows;
-  SudokuCell sc;
+  int nrows =0;
+  SudokuCell sc =SudokuCell(0, '', '', Colors.lightGreen, Colors.lightGreen,  0.0, Set());
   NumberTapEntryState(int n, SudokuCell c) {
     nrows = n;
     sc = c;
@@ -40,7 +40,7 @@ class NumberTapEntryState extends State<NumberTapEntry> {
         // data: s,
         // childWhenDragging: Container(),
         // feedback: Text(s),
-        child: FlatButton(
+        child: TextButton(
             onPressed: () {
               Navigator.pop(context, s);
             },
@@ -64,8 +64,8 @@ class NumberTapEntryState extends State<NumberTapEntry> {
 class NumberPencilEntry extends PopupMenuEntry<String> {
   @override
   double height = 100;
-  int nrows;
-  SudokuCell sc;
+  int nrows =0;
+  SudokuCell sc =SudokuCell(0, '', '', Colors.lightGreen, Colors.lightGreen,  0.0, Set());
   // height doesn't matter, as long as we are not giving
   // initialValue to showMenu().
   NumberPencilEntry(int n, SudokuCell c) {
@@ -74,15 +74,15 @@ class NumberPencilEntry extends PopupMenuEntry<String> {
   }
 
   @override
-  bool represents(String n) => n.length < 2;
+  bool represents(String? n) => n!.length < 2;
 
   @override
   NumberPencilEntryState createState() => NumberPencilEntryState(nrows, sc);
 }
 
 class NumberPencilEntryState extends State<NumberPencilEntry> {
-  int nrows;
-  SudokuCell sc;
+  int nrows = 0;
+  SudokuCell sc = SudokuCell(0, '', '', Colors.lightGreen, Colors.lightGreen,  0.0, Set());
   NumberPencilEntryState(int n, SudokuCell c) {
     nrows = n;
     sc = c;

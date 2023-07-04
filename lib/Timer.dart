@@ -7,9 +7,9 @@ class ElapsedTime {
   final int minutes;
 
   ElapsedTime({
-    this.hundreds,
-    this.seconds,
-    this.minutes,
+    required this.hundreds,
+    required this.seconds,
+    required this.minutes,
   });
 }
 
@@ -23,7 +23,7 @@ class Dependencies {
 
 
 class TimerPage extends StatefulWidget {
-  TimerPage({Key key}) : super(key: key);
+  TimerPage({required Key key}) : super(key: key);
 
   TimerPageState createState() => new TimerPageState();
 }
@@ -85,17 +85,17 @@ class TimerPageState extends State<TimerPage> {
 }
 
 class TimerText extends StatefulWidget {
-  TimerText({this.dependencies});
+  TimerText({required this.dependencies});
   final Dependencies dependencies;
 
   TimerTextState createState() => new TimerTextState(dependencies: dependencies);
 }
 
 class TimerTextState extends State<TimerText> {
-  TimerTextState({this.dependencies});
+  TimerTextState({required this.dependencies});
   final Dependencies dependencies;
-  Timer timer;
-  int milliseconds;
+  late Timer? timer;
+  int milliseconds =0 ;
 
   @override
   void initState() {
@@ -119,7 +119,7 @@ class TimerTextState extends State<TimerText> {
       final ElapsedTime elapsedTime = new ElapsedTime(
     //    hundreds: hundreds,
         seconds: seconds,
-        minutes: minutes,
+        minutes: minutes, hundreds: hundreds,
       );
       for (final listener in dependencies.timerListeners) {
         listener(elapsedTime);
@@ -144,14 +144,14 @@ class TimerTextState extends State<TimerText> {
 }
 
 class MinutesAndSeconds extends StatefulWidget {
-  MinutesAndSeconds({this.dependencies});
+  MinutesAndSeconds({required this.dependencies});
   final Dependencies dependencies;
 
   MinutesAndSecondsState createState() => new MinutesAndSecondsState(dependencies: dependencies);
 }
 
 class MinutesAndSecondsState extends State<MinutesAndSeconds> {
-  MinutesAndSecondsState({this.dependencies});
+  MinutesAndSecondsState({required this.dependencies});
   final Dependencies dependencies;
 
   int minutes = 0;
@@ -193,13 +193,13 @@ class MyApp extends StatelessWidget {
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(),
+      home: new MyHomePage(key: new Key(''),),
     );
   }
 }
 
 class MyHomePage extends StatelessWidget {
-  MyHomePage({Key key}) : super(key: key);
+  MyHomePage({required Key key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +208,7 @@ class MyHomePage extends StatelessWidget {
         title: new Text("Stopwatch"),
       ),
       body: new Container(
-          child: new TimerPage()
+          child: new TimerPage(key: new Key(''),)
       ),
     );
   }

@@ -32,29 +32,30 @@ class SudokuBrain {
     _solved = value;
   }
 
-  List<String> _input;
-  List<String> rows;
-  List<String> cols;
-  List<List<String>> blocks;
-  List<SCell> movesList = List<SCell>();
+  late List<String> _input;
+  late List<String> rows;
+  late List<String> cols;
+  late List<List<String>> blocks;
+  late List<SCell> movesList ;
+  //List<SCell>();
   final List<String> adigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   final List<String> aletters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-  List<String> digits;
-  Map<String, List<String>> boardDict;
-  Map<String, List<String>> moveBoard;
+ late  List<String> digits;
+  late Map<String, List<String>> ? boardDict;
+ late  Map<String, List<String>>? moveBoard;
 
-  Map<String, String> puzzleBoard;
+  late Map<String, String> puzzleBoard;
   var logger = Logger(
     printer: PrettyPrinter(),
   );
   var loggerNoStack = Logger(
     printer: PrettyPrinter(methodCount: 0),
   );
-  List<List<String>> unitlist;
-  Map<String, List<List<String>>> units;
-  var peers;
-  List<String> squares;
-  SudokuBrain({int r, int c, String grid , bool gm = false}) {
+  late List<List<String>> unitlist;
+  late Map<String, List<List<String>>> units;
+  late var peers;
+  late List<String> squares;
+  SudokuBrain({required int r, required int c, required String grid , bool gm = false}) {
 
 
     assigns = 0;
@@ -86,7 +87,7 @@ class SudokuBrain {
     return _input;
   }
 
-  bool makeMove(final String pos, final String val) {}
+  bool makeMove(final String pos, final String val) {return false;}
   void undo() {
     if (movesList.isEmpty) return;
     SCell l = movesList.last;
@@ -98,8 +99,8 @@ class SudokuBrain {
     puzzleBoard[prevE.position] = prevE.value;
   }
 
-  void setValAt(final String pos, final String val) {
-    SCell s = new SCell(pos, val);
+  void setValAt(final String? pos, final String? val) {
+    SCell s = new SCell(pos!, val!);
     if (movesList.contains(s) == false) movesList.add(s);
 
     logger.i("PUZB[$pos]=$val");
@@ -110,17 +111,17 @@ class SudokuBrain {
     return movesList.isNotEmpty;
   }
 
-  bool isInInput(final int idx, final String val) {
+  bool isInInput(final int idx, final String? val) {
     var v = _input[idx];
     //  logger.i("IS INPUT OF $idx for val $val->$v");
     return cols.contains(_input[idx]) && _input[idx] == val;
   }
 
-  String getValueAtPos(final String pos) {
+  String? getValueAtPos(final String? pos) {
     return puzzleBoard[pos];
   }
 
-  String getValAtIndex(final int i) {
+  String? getValAtIndex(final int i) {
     // logger.i("GETTING VAL AT IDX $i");
     if (i >= _nrows * _ncols || i < 0)
       throw ('Bad index $i for current $_nrows X $_ncols grid');
@@ -135,11 +136,11 @@ class SudokuBrain {
 
     print("BOARD-> ${p}");
    // print("SOLUT-> ${boardDict.values.expand((element) => element).join('')} ");
-    print("SOLUT-> ${getSolution().join('')} ");
+    print("SOLUT-> ${getSolution()?.join('')} ");
    // res = p == getSolution().join(''))
 
     logger.i("BOARD DICT IS $boardDict");
-    bool res = _solved  &&  ( p == getSolution().join(''));
+    bool res = _solved  &&  ( p == getSolution()?.join(''));
 
    // boardDict.keys.every((k) => boardDict[k].join('').;
     logger.i("PUZZLESOLVED() $res _solved is $_solved");
@@ -150,21 +151,21 @@ class SudokuBrain {
   bool puzzleSolvedStrict() {
     logger.i("PUZZLE BOARD IS $puzzleBoard");
     bool res = _solved &&
-        boardDict.keys.every((k) => boardDict[k].join('') == puzzleBoard[k]);
+        boardDict!.keys.every((k) => boardDict?[k]?.join('') == puzzleBoard[k]);
     logger.i("PUZZLESOLVED() $res _solved is $_solved");
     return res;
   }
 
-  String getSolutionValAtPos(final String pos) {
-    return boardDict[pos].join('');
+  String? getSolutionValAtPos(final String pos) {
+    return boardDict?[pos]?.join('');
   }
 
-  Set<String> getPeers(final String pos) {
+  Set<String> getPeers(final String? pos) {
     // logger.i("PEERS ${peers[pos]} and type is ${peers[pos].runtimeType} ");
     return peers[pos];
   }
 
-  List<List<String>> getUnits(final String pos) {
+  List<List<String>>? getUnits(final String? pos) {
     return units[pos];
   }
 
@@ -174,7 +175,7 @@ class SudokuBrain {
     return rows[(i / _nrows).floor()] + cols[i % _ncols];
   }
 
-  bool isValidDigitOnGrid(final String v) {
+  bool isValidDigitOnGrid(final String? v) {
     return digits.contains(v);
   }
 
@@ -185,8 +186,8 @@ class SudokuBrain {
     return rows[r] + cols[c];
   }
 
-  bool isCorrectAt(final String pos, final String d) {
-    return boardDict[pos].length == 1 && boardDict[pos].first == d
+  bool isCorrectAt(final String? pos, final String? d) {
+    return boardDict?[pos]?.length == 1 && boardDict?[pos]?.first == d
         ? true
         : false;
   }
@@ -213,13 +214,13 @@ class SudokuBrain {
     return -1;
   }
 
-  List<String> getPossibleAt(final String pos) {
-    return boardDict[pos];
+  List<String>? getPossibleAt(final String pos) {
+    return boardDict?[pos];
   }
 
-  List<String> getSolution() {
+  List<String>? getSolution() {
     if (isSolved()) {
-      return boardDict.values.map((e) => e.join('')).toList();
+      return boardDict?.values.map((e) => e.join('')).toList();
     } else
       return null;
   }
@@ -297,7 +298,7 @@ class SudokuBrain {
 
     peers = {
       for (var elem in squares)
-        elem: units[elem].expand((e) => e).toSet()..remove(elem)
+        elem: units[elem]?.expand((e) => e).toSet()?..remove(elem)
     };
     logger.d('done with computeInit ');
   }
@@ -336,49 +337,49 @@ class SudokuBrain {
     return m;
   }
 
-  Map<String, List<String>> assign(
+  Map<String, List<String>>? assign(
       Map<String, List<String>> values, String s, String d) {
-    List<String> other_values = values[s].map((element) => element).toList();
-    if (other_values.length == 1) {
+    List<String>? other_values = values[s]?.map((element) => element).toList();
+    if (other_values?.length == 1) {
       return values;
     }
-    if (values.keys.where((k) => values[k].length == 1).toList().contains(d)) {
+    if (values.keys.where((k) => values[k]?.length == 1).toList().contains(d)) {
       logger.e("$d already solved ");
       return null;
     }
-    other_values.remove(d);
+    other_values?.remove(d);
     assigns++;
     logger.d('Assigning $d at pos $s i.e eliminating ');
     logger.d('Other values ${other_values}');
 
-    List<bool> x = other_values.map((d3) {
+    List<bool>? x = other_values?.map((d3) {
       var er = eliminate(values, s, d3);
       return (er == null ? false : true);
     }).toList();
 
-    if (x.every((e) => e != false))
+    if (x!.every((e) => e != false))
       return values;
     else {
       return null;
     }
   }
 
-  Map<String, List<String>> eliminate(
+  Map<String, List<String>>? eliminate(
       Map<String, List<String>> values, String s, String d) {
-    if (values[s].contains(d) == false) {
+    if (values[s]?.contains(d) == false) {
       return values;
     }
-    List<String> t = values[s].map((element) => element).toList();
-    t.remove(d);
-    if (t.length == 0) {
+    List<String>? t = values[s]?.map((element) => element).toList();
+    t?.remove(d);
+    if (t?.length == 0) {
       logger.e("EMPTY VALUES");
       return null;
     } else {
-      values[s] = t;
-      if (values[s].length == 1) {
-        String d2 = values[s].first;
+      values[s] = t!;
+      if (values[s]?.length == 1) {
+        String? d2 = values[s]?.first;
         List<dynamic> elemLst =
-            peers[s].map((s2) => eliminate(values, s2, d2)).toList();
+            peers[s].map((s2) => eliminate(values, s2, d2!)).toList();
 
         if (elemLst.any((e) => e != null) == false) {
           logger.e("CONTRADICTION SINCE WE COULD NOT ELIMINATE  ");
@@ -386,8 +387,8 @@ class SudokuBrain {
         }
       }
     }
-    for (List<String> u in units[s]) {
-      List<String> dplaces = u.where((v) => values[v].contains(d)).toList();
+    for (List<String> u in units[s]!) {
+      List<String> dplaces = u.where((v) => values[v]!.contains(d)).toList();
       if (dplaces.isEmpty) {
         loggerNoStack.e("CONTRADICTION no place at  for this val");
         return null;
@@ -401,13 +402,13 @@ class SudokuBrain {
     return values;
   }
 
-  Map<String, List<String>> parse_grid() {
+  Map<String, List<String>>? parse_grid() {
     Map<String, List<String>> values = {for (String s in squares) s: digits};
     moveBoard = {for (String s in squares) s: digits};
 
     for (MapEntry me in grid_values().entries) {
       if (digits.contains(me.value))
-        moveBoard[me.key] = List<String>.generate(1, (index) => me.value);
+        moveBoard?[me.key] = List<String>.generate(1, (index) => me.value);
 
       if (digits.contains(me.value) && assign(values, me.key, me.value) == null)
         return null;
@@ -418,13 +419,13 @@ class SudokuBrain {
   }
 
   bool isSolved() {
-    if (boardDict == null || boardDict.isEmpty) return false;
-    for (MapEntry me in boardDict.entries) {
+    if (boardDict == null || boardDict!.isEmpty) return false;
+    for (MapEntry me in boardDict!.entries) {
       if (me.value.length > 1)
         return false;
       else
         for (var p in peers[me.key])
-          if (boardDict[p].contains(me.value)) return false;
+          if (boardDict?[p] != null && boardDict![p]!.contains(me.value)) return false;
     }
     ;
     return true;
@@ -441,9 +442,9 @@ class SudokuBrain {
 
     rows.forEach((r) {
       cols.forEach((c) {
-        String s = bd[r + c].join();
+        String? s = bd[r + c]?.join();
 
-        stdout.write(s.padRight(width, ' ') +
+        stdout.write(s!.padRight(width, ' ') +
             (dlimCol.isNotEmpty && dlimCol.contains(c) ? '|' : '') +
             ' ');
       });
@@ -451,28 +452,28 @@ class SudokuBrain {
       print('');
     });
   }
-  List<String> backTrackGenPuz() {
-
-
-  }
+  // List<String> backTrackGenPuz() {
+  //
+  //
+  // }
   List<String> generatePuzzle( ){
      final int numEnt = 2*_nrows -1;  // Min number of provided filled in input squares
 
      final int uniqDigits = _nrows -1;
      logger.i("IN GEN PUZZ");
      Map<String, List<String>> values = {for (String s in squares) s: digits};
-     List<String>  sq = List<String>() ;
+     List<String>  sq = List<String>.empty() ;
      sq.addAll(squares);
      sq.shuffle(new Random());
      for ( String s  in sq) {
        Random r = new Random();
        if (assign(
-           values, s, values[s].elementAt(r.nextInt(values[s].length))) ==
+           values, s, values[s]!.elementAt(r.nextInt(values[s]!.length))) ==
            null) {
          break;
        }
-       List<String> t = squares.where((s) => values[s].length == 1).map((
-           e) => values[e]).toList().expand((element) => element).toList();
+       List t = squares.where((s) => values[s]?.length == 1).map((
+           e) => values[e]).toList().expand((element) => element!).toList();
        logger.i("T IS $t");
        if (t.length >= numEnt && t
            .toSet()
@@ -489,9 +490,9 @@ class SudokuBrain {
 
   }
   void display() {
-    if (boardDict == null || boardDict.isEmpty)
+    if (boardDict == null || boardDict!.isEmpty)
       throw Exception("Nothing to display");
-    int width = 1 + boardDict.values.map((v) => v.length).toList().reduce(max);
+    int width = 1 + boardDict!.values.map((v) => v.length).toList().reduce(max);
     String line = '\n';
     List<String> dlimRow = ['C', 'F'];
     List<String> dlimCol = ['3', '6'];
@@ -500,9 +501,9 @@ class SudokuBrain {
 
     rows.forEach((r) {
       cols.forEach((c) {
-        String s = boardDict[r + c].join();
+        String? s = boardDict?[r + c]?.join();
 
-        stdout.write(s.padRight(width, ' ') +
+        stdout.write(s!.padRight(width, ' ') +
             (dlimCol.isNotEmpty && dlimCol.contains(c) ? '|' : '') +
             ' ');
       });
@@ -526,7 +527,7 @@ class SudokuBrain {
     final int height = cols.length;
     final int bwidth = sqrt(cols.length).round();
     final int bheight = sqrt(rows.length).round();
-    List<String> out = new List<String>();
+    List<String> out = new List<String>.empty();
     values.forEach((c) {
       out.add(c);
       colCtr++;
@@ -546,19 +547,19 @@ class SudokuBrain {
     });
   }
 
-  Map<String, List<String>> solve() {
+  Map<String, List<String>>? solve() {
     boardDict = search(parse_grid());
     _solved = isSolved();
     return boardDict;
   }
 
   void reset() {
-    boardDict.clear();
+    boardDict?.clear();
     puzzleBoard.clear();
     movesList.clear();
   }
 
-  Map<String, List<String>> search(Map<String, List<String>> values) {
+  Map<String, List<String>> ?search(Map<String, List<String>>? values) {
     loggerNoStack.v("SEARCHING  $values");
     if (values == null || values.isEmpty) return null;
 
@@ -570,17 +571,17 @@ class SudokuBrain {
 
     Map<String, int> ord = {
       for (var k in values.keys)
-        if (values[k].length > 1)  k:values[k].length
+        if (values[k]!.length > 1)  k:values[k]!.length
     };
     Random rnd = new Random();
 
-    String minSzKey = "";
+    String? minSzKey = "";
     switch (_solve_strategy)  {
 
       case Solve_Strategy.MIN : {
     Map<int, String> ord = {
     for (var k in values.keys)
-    if (values[k].length > 1) values[k].length: k
+    if (values[k]!.length > 1) values[k]!.length: k
     };
 
         minSzKey = ord[ord.keys.reduce(min)];
@@ -589,20 +590,23 @@ class SudokuBrain {
      case (Solve_Strategy.RANDOM) : {
     Map<String, int> ord = {
       for (var k in values.keys)
-        if (values[k].length > 1)  k :values[k].length
+        if (values[k]!.length > 1)  k :values[k]!.length
     };
     logger.i(" ORED IS $ord \n values $values" );
 
     minSzKey = ord.keys.toList()[rnd.nextInt(ord.length)];
 
     }
-    break;
+
+      default : {}
+      break;
+
     }
     // minSzKey = ord[ord.keys.reduce(min)];
 
-    for (String d in values[minSzKey]) {
-      Map<String, List<String>> res = search(assign(
-          values.map((key, value) => MapEntry(key, value)), minSzKey, d));
+    for (String d in values[minSzKey]!) {
+      Map<String, List<String>>? res = search(assign(
+          values.map((key, value) => MapEntry(key, value)), minSzKey!, d));
       if (res != null && res.isNotEmpty) {
         return res;
       }
@@ -610,8 +614,8 @@ class SudokuBrain {
     return null;
   }
 
-  Map<String, List<String>> assignMove(String pos, String val) {
-    moveBoard = assign(moveBoard, pos, val);
+  Map<String, List<String>>? assignMove(String pos, String val) {
+    moveBoard = assign(moveBoard!, pos, val)!;
     return moveBoard;
   }
 }

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 
 class SudokuCell {
   int index;
-  String pos;
-  String val;
-  Color clr;
+  String? pos;
+  String? val;
+  Color? clr;
   Color tClr;
   bool spotlight;
-  bool animateblock;
+  bool animateblock = false;
   bool isCorrect = false;
   Set<String> notedVals;
   double opacity = 1.0;
@@ -33,7 +33,7 @@ class PuzzleBoardProps {
   int _movesWrong = 0;
 
   int _puzzleDifficulty = 0;
-  double _timeTaken;
+  double _timeTaken = 0.0;
   int _assistMode = 0;
   void reset() {
     _movesCorrect = 0;

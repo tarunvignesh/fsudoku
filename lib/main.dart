@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:sudoku/components/SudokuBrain.dart';
 import 'dart:math';
 import 'package:logger/logger.dart';
-import 'package:fab_circular_menu/fab_circular_menu.dart';
+//import 'package:fab_circular_menu/fab_circular_menu.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'Timer.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
-import 'package:badges/badges.dart';
+import 'package:badges/badges.dart'  as badges;
 import 'package:sudoku/components/cell_menu.dart';
 import 'package:sudoku/components/common.dart';
 
@@ -30,8 +30,8 @@ class _SudokuAppState extends State<SudokuApp> {
 
   final TimerDeps = new Dependencies();
   bool paused = false;
-  SudokuCell SelectedCell;
-  PuzzleBoardProps puzzleProps;
+  SudokuCell ? SelectedCell;
+  PuzzleBoardProps?  puzzleProps;
 
    SudokuBrain _sb =
        // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
@@ -47,7 +47,7 @@ class _SudokuAppState extends State<SudokuApp> {
   //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
   //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
-  List<SudokuCell> _ScreenGrid;
+  late List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
   // Animate cells
   // Timer
@@ -58,7 +58,7 @@ class _SudokuAppState extends State<SudokuApp> {
   // Proper icons for undo ,
   // Show why wrong by highlinting conflict
   // Enter your number?
-  List<SudokuCell> _DragList;
+  late List<SudokuCell> _DragList;
   GlobalKey _gk = GlobalKey();
   var _tapPosition;
 
@@ -146,13 +146,13 @@ class _SudokuAppState extends State<SudokuApp> {
   }
 
   void animatePeer(final SudokuCell c) {
-    List<String> highLightUnits = _sb
+    List<String>? highLightUnits = _sb
         .getUnits(c.pos)
-        .where((u) => u.every((element) =>
+        ?.where((u) => u.every((element) =>
             _sb.getValueAtPos(element) == _sb.getSolutionValAtPos(element)))
         .expand((element) => element)
         .toList();
-    if (highLightUnits.isNotEmpty) {
+    if (highLightUnits!.isNotEmpty) {
       clearOpacities();
       setState(() {
         _ScreenGrid.forEach((cell) {
@@ -170,12 +170,12 @@ class _SudokuAppState extends State<SudokuApp> {
       c.tClr = Colors.black;
     else {
       if (c.isCorrect == true) {
-        puzzleProps.incrCorrect();
+        puzzleProps?.incrCorrect();
 
         c.tClr = Colors.black;
         animatePeer(c);
       } else {
-        puzzleProps.incrWrong();
+        puzzleProps?.incrWrong();
         c.tClr = Colors.red;
       }
     }
@@ -200,9 +200,9 @@ class _SudokuAppState extends State<SudokuApp> {
 
   void _showPencilMenuItems(SudokuCell _cell) {
     SelectedCell = _cell;
-    BuildContext context = _gk.currentContext;
+    BuildContext? context = _gk.currentContext;
     if (_sb.isInInput(_cell.index, _cell.val) || _sb.isCorrectAt(_cell.pos, _cell.val)) return;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject();
+    final RenderBox overlay = Overlay.of(context!).context.findRenderObject() as RenderBox;
     showMenu(
             context: context,
             items: <PopupMenuEntry<String>>[
@@ -219,7 +219,7 @@ class _SudokuAppState extends State<SudokuApp> {
                     const Size(40, 40), // smaller rect, the touch area
                 Offset.zero & overlay.size // Bigger rect, the entire screen
                 ))
-        .then((String gval) {
+        .then((String? gval) {
       if (gval == null) return;
 
       setState(() {
@@ -280,8 +280,8 @@ class _SudokuAppState extends State<SudokuApp> {
    // if (_sb.isInInput(_cell.index, _cell.val))  return;
    if( _sb.isCorrectAt(_cell.pos, _cell.val)) return;
 
-    BuildContext context = _gk.currentContext;
-    final RenderBox overlay = Overlay.of(context).context.findRenderObject();
+    BuildContext? context = _gk.currentContext;
+    final RenderBox overlay = Overlay.of(context!).context.findRenderObject() as RenderBox;
     showMenu(
             context: context,
             items: <PopupMenuEntry<String>>[
@@ -293,7 +293,7 @@ class _SudokuAppState extends State<SudokuApp> {
                 Offset.zero & overlay.size // Bigger rect, the entire screen
                 ))
         // This is how you handle user selection
-        .then<void>((String gval) {
+        .then<void>((String? gval) {
       // delta would be null if user taps on outside the popup menu
       // (causing it to close without making selection)
       if (gval == null) return;
@@ -301,7 +301,7 @@ class _SudokuAppState extends State<SudokuApp> {
       setState(() {
         if (gval == 'X') {
           _sb.undo();
-          _cell.val = _sb.getValAtIndex(_cell.index);
+          _cell.val = _sb.getValAtIndex(_cell.index)!;
         } else {
           _cell.val = gval;
 
@@ -324,7 +324,7 @@ class _SudokuAppState extends State<SudokuApp> {
             btnCancelColor: Colors.blue,
             btnCancelText: 'Dismiss',
             desc:
-                'Solved board in ${puzzleProps.movesWrong + puzzleProps.movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
+                'Solved board in ${puzzleProps!.movesWrong + puzzleProps!.movesCorrect} moves!.\n And took ${TimerDeps.stopwatch.elapsed.inMinutes}: ${TimerDeps.stopwatch.elapsed.inSeconds.round()}',
             btnCancelOnPress: () {
               setState(() {
                 print("YO");
@@ -372,22 +372,22 @@ class _SudokuAppState extends State<SudokuApp> {
     const double blockSepWidth = 2.0;
     final Color borderColor = Colors.transparent;
     final Color blockEdgeColor = Colors.red;
-    if (_cell.pos[1] == '1' ||
+    if (_cell.pos?[1] == '1' ||
         ((_cell.index - 1) > -1 &&
             _sb.getBlockIdByIndex(_cell.index - 1) != cBlkId)) {
       leftBold = true;
     }
-    if (_cell.pos[1] == _sb.getNCols().toString() ||
+    if (_cell.pos?[1] == _sb.getNCols().toString() ||
         ((_cell.index + 1) < _sb.getNCols() &&
             _sb.getBlockIdByIndex(_cell.index + 1) != cBlkId)) {
       rightBold = true;
     }
-    if (_cell.pos[0] == 'A' ||
+    if (_cell.pos?[0] == 'A' ||
         ((_cell.index - (_sb.getNRows())) > -1 &&
             _sb.getBlockIdByIndex(_cell.index - (_sb.getNRows())) != cBlkId)) {
       topBold = true;
     }
-    if (_cell.pos[0] == _sb.rows[_sb.getNRows() - 1] ||
+    if (_cell.pos?[0] == _sb.rows[_sb.getNRows() - 1] ||
         ((_cell.index + _sb.getNCols()) < _sb.getNCols() &&
             _sb.getBlockIdByIndex(_cell.index + _sb.getNCols()) != cBlkId)) {
       botBold = true;
@@ -518,7 +518,7 @@ class _SudokuAppState extends State<SudokuApp> {
     }
     logger.i("WE NOW HAVE GRID ${_sb.getInputAsString()}} with solution ");
     _sb.display();
-    _DragList = List();
+    _DragList = [];
     _ScreenGrid = List.generate(_sb.getNRows() * _sb.getNCols(), (index) {
       //logger.i("GETTING ELEM $index");
       //  return new MyHomePage(
@@ -552,7 +552,7 @@ class _SudokuAppState extends State<SudokuApp> {
   void reset() {
     _ScreenGrid.clear();
     _sb.reset();
-    puzzleProps.reset();
+    puzzleProps?.reset();
     TimerDeps.stopwatch.reset();
     TimerDeps.stopwatch.start();
 
@@ -621,23 +621,24 @@ class _SudokuAppState extends State<SudokuApp> {
                                             blurGrid(paused);
                                           });
                                         }),
-                                    Badge(
-                                        toAnimate: true,
-                                        shape: BadgeShape.circle,
-                                        badgeColor: Colors.green,
-                                        borderRadius: BorderRadius.circular(8),
+                                    badges.Badge(
+                                       // toAnimate: true,
+                                        badgeStyle: badges.BadgeStyle (badgeColor: Colors.green,
+                                              shape: badges.BadgeShape.circle,
+
+                                            borderRadius: BorderRadius.circular(8)),
                                         badgeContent: Text(
-                                            '${puzzleProps.movesCorrect.toString()}',
+                                            '${puzzleProps?.movesCorrect.toString()}',
                                             style: TextStyle(
                                                 fontSize: 30,
                                                 color: Colors.white))),
-                                    Badge(
-                                        toAnimate: true,
-                                        shape: BadgeShape.circle,
-                                        badgeColor: Colors.red,
-                                        borderRadius: BorderRadius.circular(8),
+                                    badges.Badge(
+                               //         toAnimate: true,
+                                      //  shape: BadgeShape.circle,
+                                        badgeStyle: badges.BadgeStyle ( badgeColor: Colors.red,
+                                        borderRadius: BorderRadius.circular(8)),
                                         badgeContent: Text(
-                                            puzzleProps.movesWrong.toString(),
+                                            puzzleProps!.movesWrong.toString(),
                                             style: TextStyle(
                                                 color: Colors.white))),
                                   ],
@@ -778,28 +779,33 @@ class _SudokuAppState extends State<SudokuApp> {
               ],
             ),
           ),
-          floatingActionButton: FabCircularMenu(
-              alignment: Alignment.bottomCenter,
-              ringColor: Colors.white.withAlpha(25),
-              fabColor: Colors.white,
-              fabMargin: const EdgeInsets.all(16.0),
-              animationDuration: const Duration(milliseconds: 100),
-              animationCurve: Curves.easeInOutCirc,
-              fabIconBorder: CircleBorder(),
-              children: <Widget>[
-                IconButton(
-                    icon: FaIcon(FontAwesomeIcons.affiliatetheme),
-                    onPressed: () {
-                      setState(() {
-                        reset();
-                      });
-                    }),
-                IconButton(
-                    icon: Icon(Icons.favorite),
-                    onPressed: () {
-                      print('Favorite');
-                    })
-              ])),
+          // floatingActionButton: FabCircularMenu(
+          //     alignment: Alignment.bottomCenter,
+          //     ringColor: Colors.white.withAlpha(25),
+          //     fabColor: Colors.white,
+          //     fabMargin: const EdgeInsets.all(16.0),
+          //     animationDuration: const Duration(milliseconds: 100),
+          //     animationCurve: Curves.easeInOutCirc,
+          //     fabIconBorder: CircleBorder(),
+          //     children: <Widget>[
+          //       IconButton(
+          //           icon: FaIcon(FontAwesomeIcons.affiliatetheme),
+          //           onPressed: () {
+          //             setState(() {
+          //               reset();
+          //             });
+          //           }),
+          //       IconButton(
+          //           icon: Icon(Icons.favorite),
+          //           onPressed: () {
+          //             print('Favorite');
+          //           })
+          //     ])
+          //
+      ),
+
+
+
     );
   }
 }
