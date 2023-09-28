@@ -15,7 +15,6 @@ enum Solve_Strategy {
    MIN,
    MAX,
   RANDOM
-
 }
 
 class SudokuBrain {
@@ -47,21 +46,25 @@ class SudokuBrain {
   late Map<String, String> puzzleBoard;
   var logger = Logger(
     printer: PrettyPrinter(),
+    output: null,
+    level: Level.warning
   );
   var loggerNoStack = Logger(
     printer: PrettyPrinter(methodCount: 0),
   );
+
+
   late List<List<String>> unitlist;
   late Map<String, List<List<String>>> units;
   late var peers;
   late List<String> squares;
-  SudokuBrain({required int r, required int c, required String grid , bool gm = false}) {
+  SudokuBrain({required int r, required int c, required String grid , Solve_Strategy ss = Solve_Strategy.MIN}) {
 
 
     assigns = 0;
     _nrows = r;
     _ncols = c;
-    _genMode = gm;
+    _genMode = false;
 
     rows = aletters.sublist(0, _nrows);
     cols = adigits.sublist(0, _ncols);
@@ -71,8 +74,10 @@ class SudokuBrain {
      _input= List<String>.generate(_ncols * _nrows, (index) => '.');
    else
       _input = filterInput(grid);
-    _solve_strategy = _genMode && grid.isEmpty ? Solve_Strategy.RANDOM : Solve_Strategy.MIN;
+   // _solve_strategy = _genMode && grid.isEmpty ? Solve_Strategy.RANDOM : Solve_Strategy.MIN;
+  //  _solve_strategy = _genMode && grid.isEmpty ? Solve_Strategy.RANDOM : Solve_Strategy.MIN;
 
+    movesList = [];
   }
   List<String> filterInput( String g)
   {
@@ -308,7 +313,7 @@ class SudokuBrain {
     arr.forEach((x) {
       print(x);
       i++;
-      if (i % 9 == 0) print("\n");
+      if (i % _ncols == 0) print("\n");
     });
   }
 
@@ -462,8 +467,8 @@ class SudokuBrain {
      final int uniqDigits = _nrows -1;
      logger.i("IN GEN PUZZ");
      Map<String, List<String>> values = {for (String s in squares) s: digits};
-     List<String>  sq = List<String>.empty() ;
-     sq.addAll(squares);
+     List<String>  sq = [...squares];
+
      sq.shuffle(new Random());
      for ( String s  in sq) {
        Random r = new Random();
@@ -497,7 +502,7 @@ class SudokuBrain {
     List<String> dlimRow = ['C', 'F'];
     List<String> dlimCol = ['3', '6'];
     line += (new List<String>.generate(sqrt(_nrows).round(),
-        (k) => ('-' * (width * sqrt(_ncols).round() + 1))).join('+'));
+        (k) => ('-' * (width * sqrt(_ncols).round() - 1))).join('+'));
 
     rows.forEach((r) {
       cols.forEach((c) {
@@ -512,12 +517,7 @@ class SudokuBrain {
     });
   }
 
-  // List<String> neighbors(final String pos )
-  // {
-  //     String r = pos[0];
-  //     String c = pos[1];
-  //
-  // }
+
   void displayPuzzle(final List<String> values) {
     int colCtr = 0;
     double blockCtr = 0;
@@ -525,27 +525,32 @@ class SudokuBrain {
 
     final int width = rows.length;
     final int height = cols.length;
-    final int bwidth = sqrt(cols.length).round();
-    final int bheight = sqrt(rows.length).round();
-    List<String> out = new List<String>.empty();
-    values.forEach((c) {
-      out.add(c);
-      colCtr++;
+     int bwidth = sqrt(cols.length).ceil() ;
+     int bheight = sqrt(rows.length).floor();
+    // if( bwidth == 6 && bheight == 6) {
+    //   bwidth = bwidth+1 ;
+    //   bheight = bheight-1  ;
+    // }
+     List<String> out = new List<String>.empty(growable: true);
+     values.forEach((c) {
+       out.add(c);
+       colCtr++;
 
-      if (colCtr % bwidth == 0 && colCtr < width) {
-        out.add('|');
-      }
-      if (colCtr == (width)) {
-        print(out.join(' '));
-        out.clear();
-        rowCtr++;
-        colCtr = 0;
-        if (rowCtr % bheight == 0 && rowCtr < height) {
-          print((List.generate(width + bwidth - 1, (index) => '-')).join(' '));
-        }
-      }
-    });
-  }
+       if (colCtr % bwidth == 0 && colCtr < width) {
+         out.add('|');
+       }
+       if (colCtr == (width)) {
+         print(out.join(' '));
+         out.clear();
+         rowCtr++;
+         colCtr = 0;
+         if (rowCtr % bheight == 0 && rowCtr < height) {
+         //  print((List.generate(width + bwidth - 1, (index) => '-')).join(' '));
+         }
+       }
+     });
+   }
+
 
   Map<String, List<String>>? solve() {
     boardDict = search(parse_grid());
@@ -637,9 +642,35 @@ main() {
   // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
 
    SudokuBrain sb =
-       new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+   new SudokuBrain(r: 6, c: 6, grid: "");
+
+
+
+ // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
  // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  print(sb.generatePuzzle());
+  List<String> inp= sb.generatePuzzle();
+  //print(sb.generatePuzzle());
+//   sb.displayPuzzle(inp);
+   SudokuBrain sbs = new SudokuBrain(r: 6, c:6, grid: inp.join(''));
+   sbs.solve();
+// //  sbs.displayPuzzle(sol);
+//   sbs.displayPuzzle(inp);
+// sbs.puzzleSolved();
+//   sbs.display();
+//   sbs.displayPuzzle(inp);
+//   print(inp.join(''));
+
+  if(checkPuzz(inp, 6, 6, sbs.getSolution() ,64))
+  {
+    sbs.displayPuzzle(inp);
+     sbs.display();
+
+    print("VALID INPUT!! $inp\n ${inp.join('')} ");
+
+  } else
+    print("BAD input and not consistently solvable $inp\n");
+
+  //sbs.getInputAsList();
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");
 
   // SudokuBrain sb = new SudokuBrain(
@@ -674,4 +705,33 @@ main() {
   //   print("No solution for input ");
   //
 //  print(sb.getAssigns);
+}
+bool checkPuzzleWithStrategy(final List<String> inp , final int ro, final int co,final List<String>? sol,Solve_Strategy ss)
+{
+    SudokuBrain sb1 = new SudokuBrain(r: ro, c: co, grid: inp.join(''), ss: ss);
+    sb1.solve();
+    if(sb1.isSolved() == false)
+      return false;
+
+
+   // sb1.displayPuzzle(inp);
+    return  (sol?.join('') == sb1.getSolution()?.join(''));
+
+}
+
+bool checkPuzz(final List<String> inp , final int ro, final int co,final List<String>? sol, final int loopSz ) {
+  bool valid = true;
+
+  for ( int i = 0; i< loopSz; i++) {
+
+
+    if(checkPuzzleWithStrategy(inp,ro,co,sol,Solve_Strategy.RANDOM))
+     continue;
+    else {
+      print("NO MAS FOR YOU $inp");
+      return false ;
+    }
+  }
+ return valid && checkPuzzleWithStrategy(inp,ro,co,sol,Solve_Strategy.MIN) && checkPuzzleWithStrategy(inp,ro,co,sol,Solve_Strategy.MAX);
+
 }

@@ -18,6 +18,8 @@ void main() {
 }
 
 class SudokuApp extends StatefulWidget {
+
+
   @override
   _SudokuAppState createState() => _SudokuAppState();
 }
@@ -33,19 +35,23 @@ class _SudokuAppState extends State<SudokuApp> {
   SudokuCell ? SelectedCell;
   PuzzleBoardProps?  puzzleProps;
 
+
    SudokuBrain _sb =
-       // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+      //  new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+  new SudokuBrain(r: 4, c: 4, grid: "----------------");
+
+  //
   //    new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132-342-5-");
 
- new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
+ //new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
  // new SudokuBrain(r: 6, c: 6, grid: "", gm: true);
 
-  // SudokuBrain _sb = new SudokuBrain(
+  //  new SudokuBrain(
   //     r: 9,
   //     c: 9,
   //     grid:
   //         "003020600900305001001806400008102900700000008006708200002609500800203009005010300");
-  //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
+  // //'.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....');
 
   late List<SudokuCell> _ScreenGrid;
   // Assisted mode -> Display only possible values in the pop up menu
@@ -181,6 +187,9 @@ class _SudokuAppState extends State<SudokuApp> {
     }
   }
 
+  /**
+   *  The index is a noop.
+   */
   Color getColor(final int idx) {
     final List clrs = [
       Colors.lightGreen,
@@ -396,6 +405,7 @@ class _SudokuAppState extends State<SudokuApp> {
         color: _cell.clr,
         //   borderRadius: BorderRadius.all(Radius.circular(10)),
         //  borderRadius: BorderRadius.only(topLeft: Radius.circular(10) ),
+
         border: Border(
           top: topBold
               ? BorderSide(width: blockSepWidth, color: blockEdgeColor)
@@ -414,11 +424,13 @@ class _SudokuAppState extends State<SudokuApp> {
 
   Widget buildSquare(SudokuCell _cell) {
     _cell.isCorrect = _sb.isCorrectAt(_cell.pos, _cell.val);
-    return RotatedBox(
+    return
+     // RotatedBox(
       // padding: const EdgeInsets.all(8.0),
-      quarterTurns: _cell.notedVals.isNotEmpty? 1:0,
+    //  quarterTurns: _cell.notedVals.isNotEmpty? 1:0,
 
-      child: AnimatedOpacity(
+    //  child:
+    AnimatedOpacity(
           opacity: _cell.opacity,
           curve: (_cell.animateblock == true)
               ? Curves.decelerate
@@ -452,6 +464,8 @@ class _SudokuAppState extends State<SudokuApp> {
                   // Have to remember it on tap-down.
                   //    onTapDown: _storePosition,
                   child: AnimatedContainer(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 2.0),
+
                     duration: Duration(milliseconds: 1000),
                     // Provide an optional curve to make the animation feel smoother.
                     curve: Curves.bounceInOut,
@@ -462,11 +476,12 @@ class _SudokuAppState extends State<SudokuApp> {
                     //     border: Border.all(color: Colors.black, width: 3),
                     //     borderRadius: BorderRadius.all(Radius.circular(10))),
                     //    color: _cell.clr,
-                    child: Center(
-                      child: Container(
+                //    child: Center(
 
-                        child: Row(
-                          children: [
+                    //  child: Container(
+                      //  color: Colors.amber,
+
+                        child:
                           //  _cell.notedVals.isNotEmpty ? FaIcon(FontAwesomeIcons.pencilAlt) : Container(),
 
                             Text(
@@ -474,16 +489,15 @@ class _SudokuAppState extends State<SudokuApp> {
                                   ? _cell.notedVals.join(",")
                                   : _cell.val.toString(),
                               style: TextStyle(
-                                  fontSize: _cell.notedVals.isNotEmpty ?  15:20,
-                                  fontWeight: FontWeight.w800,
+                                  fontSize: _cell.notedVals.isNotEmpty ?  10:30,
+                                  fontWeight: FontWeight.w700,
                                   color: _cell.tClr),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ))),
-    );
+
+                      //),
+                   // ),
+                  )));
+    //);
   }
 
   Widget fillSquare(final idx) {
@@ -538,9 +552,7 @@ class _SudokuAppState extends State<SudokuApp> {
 
   List<Widget> setupScreenGrid() {
     return List.generate(_sb.getNRows() * _sb.getNCols(), (index) {
-      //  return new MyHomePage(
       return
-          //   fillSquare(index);
           buildSquare(_ScreenGrid[index]);
     });
   }
@@ -593,7 +605,7 @@ class _SudokuAppState extends State<SudokuApp> {
                           flex: 3,
                           child: Card(
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15.0),
+                              borderRadius: BorderRadius.circular(6.0),
                             ),
                             //  color: Colors.teal,
                             elevation: 5,
@@ -648,12 +660,13 @@ class _SudokuAppState extends State<SudokuApp> {
                           )),
                     ])),
                 Expanded(
-                  flex: 4,
+                  flex: 2,
+
                   child: Card(
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.0)),
-                      color: const Color(0xFF192A56),
-                      elevation: 5,
+                          borderRadius: BorderRadius.circular(6.0)),
+                      color: const Color(0xCCCCCCA),
+                      elevation: 1,
                       //  decoration: const BoxDecoration(color: Colors.teal),
                       // height: double.infinity,
                       // width: double.infinity,
@@ -664,148 +677,23 @@ class _SudokuAppState extends State<SudokuApp> {
                       // decoration: BoxDecoration(
                       //     border: Border.all(color: Colors.black, width: 2.0)),
 
-                      child: Stack(
-                        children: <Widget>[
-                          // Card(
-                          //   color: Colors.orangeAccent[50],
-                          //   child: Column(
-                          //       mainAxisAlignment:
-                          //           MainAxisAlignment.spaceEvenly,
-                          //       children: List.generate(
-                          //           sqrt(_sb.getNCols()).floor() - 1,
-                          //           (index) => Container(
-                          //               // child: buildSquare(SudokuCell(
-                          //               //     0,
-                          //               //     'A0',
-                          //               //     '',
-                          //               //     Colors.transparent,
-                          //               //     Colors.transparent,
-                          //               //     0.0,
-                          //               //     Set<String>())),
-                          //               //     margin: const EdgeInsets.all(15.0),
-                          //               //   padding: const EdgeInsets.all(3.0),
-                          //               decoration: BoxDecoration(
-                          //                   border:
-                          //                       Border.all(color: Colors.blue)),
-                          //               child: Container()))),
-                          // ),
-                          // Container(
-                          //   color: Colors.pink[90],
-                          //   child: Row(
-                          //       mainAxisAlignment:
-                          //           MainAxisAlignment.spaceEvenly,
-                          //       //     crossAxisAlignment: CrossAxisAlignment.baseline,
-                          //       children: List.generate(
-                          //           sqrt(_sb.getNRows()).floor() - 1,
-                          //           (index) => Container(
-                          //               // child: buildSquare(SudokuCell(
-                          //               //     0,
-                          //               //     'A0',
-                          //               //     '',
-                          //               //     Colors.transparent,
-                          //               //     Colors.transparent,
-                          //               //     0.0,
-                          //               //     Set<String>())),
-                          //               //     margin: const EdgeInsets.all(15.0),
-                          //               //   padding: const EdgeInsets.all(3.0),
-                          //               decoration: BoxDecoration(
-                          //                   border: Border.all(
-                          //                       color: Colors.green)),
-                          //               child: Container()))),
-                          // ),
-                          CustomScrollView(
-                            primary: false,
-                            slivers: <Widget>[
-                              SliverPadding(
-                                padding: const EdgeInsets.all(4),
-                                sliver: SliverGrid.count(
-                                    crossAxisSpacing: 2,
-                                    mainAxisSpacing: 2,
-                                    crossAxisCount: _sb.getNRows(),
-                                    children: setupScreenGrid()),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )),
+                     child:
+
+                                 GridView.count(
+                                     crossAxisSpacing: 1,
+                                     mainAxisSpacing: 1,
+                                     childAspectRatio: .6,
+                                     crossAxisCount: _sb.getNRows(),
+                                     children: setupScreenGrid()
+                                 )
+
+                  ),
                 ),
-                // Expanded(
-                //     flex: 1,
-                //     child: Card(
-                //       color: Colors.pinkAccent,
-                //       shape: RoundedRectangleBorder(
-                //           borderRadius: BorderRadius.circular(15.0)),
-                //       child: Container(
-                //           child: Row(
-                //               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                //               children: List.generate(
-                //                   3,
-                //                   (index) => new Draggable<String>(
-                //                       data: index.toString(),
-                //                       feedback: Container(
-                //                           color: Colors.blue,
-                //                           child: Text(index.toString())),
-                //                       childWhenDragging: Container(
-                //                           color: Colors.blue,
-                //                           child: Text(index.toString())),
-                //                       child: Container(
-                //                           color: Colors.blue,
-                //                           child: Text(index.toString())))))
-                //           // color: Colors.lightBlue,
-                //           ),
-                //     )),
-                // Expanded(
-                //   flex: 1,
-                //   child: DragTarget<String>(builder:
-                //       (context, List<String> candidateData, rejectedData) {
-                //     logger.i("WE ARE IN DRAGTARGET $candidateData");
-                //
-                //     return Card(
-                //       color: Colors.teal,
-                //       shape: RoundedRectangleBorder(
-                //           borderRadius: BorderRadius.circular(15.0)),
-                //       child: Container(
-                //           // color: Colors.lightBlue,
-                //           ),
-                //     );
-                //   }, onAccept: (String data) {
-                //     setState(() {
-                //       logger.i("GOT DATA $data");
-                //     });
-                //   }, onWillAccept: (String data) {
-                //     return true;
-                //   }),
-                // )
-              ],
-            ),
+      ]
           ),
-          // floatingActionButton: FabCircularMenu(
-          //     alignment: Alignment.bottomCenter,
-          //     ringColor: Colors.white.withAlpha(25),
-          //     fabColor: Colors.white,
-          //     fabMargin: const EdgeInsets.all(16.0),
-          //     animationDuration: const Duration(milliseconds: 100),
-          //     animationCurve: Curves.easeInOutCirc,
-          //     fabIconBorder: CircleBorder(),
-          //     children: <Widget>[
-          //       IconButton(
-          //           icon: FaIcon(FontAwesomeIcons.affiliatetheme),
-          //           onPressed: () {
-          //             setState(() {
-          //               reset();
-          //             });
-          //           }),
-          //       IconButton(
-          //           icon: Icon(Icons.favorite),
-          //           onPressed: () {
-          //             print('Favorite');
-          //           })
-          //     ])
-          //
-      ),
 
-
-
+      )
+    ),
     );
   }
 }
