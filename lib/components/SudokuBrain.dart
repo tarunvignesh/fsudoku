@@ -624,7 +624,31 @@ class SudokuBrain {
     return moveBoard;
   }
 }
+SudokuBrain gimme_a_puzzle(int r, int c){
 
+  SudokuBrain sb =
+  new SudokuBrain(r: r, c: c, grid: "");
+  String retPuzzle ="";
+  List<String> inp= sb.generatePuzzle();
+  //print(sb.generatePuzzle());
+//   sb.displayPuzzle(inp);
+  SudokuBrain sbs = new SudokuBrain(r: 6, c:6, grid: inp.join(''));
+  sbs.solve();
+
+
+  if(checkPuzz(inp, 6, 6, sbs.getSolution() ,64))
+  {
+    sbs.displayPuzzle(inp);
+    sbs.display();
+    retPuzzle = inp.join('');
+
+    print("VALID INPUT!! $retPuzzle  ");
+  } else
+    print("BAD input and not consistently solvable $inp\n");
+
+  return new SudokuBrain(r: r, c: c, grid: retPuzzle);
+
+}
 main() {
   Logger.level = Level.info;
 
@@ -641,34 +665,11 @@ main() {
   String tbt = "2... 13..   ..3.  ...2";
   // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
 
-   SudokuBrain sb =
-   new SudokuBrain(r: 6, c: 6, grid: "");
-
+  print("PUZZLE IS ${gimme_a_puzzle(6,6)}\n");
 
 
  // new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
  // SudokuBrain sb = new SudokuBrain(r: 4, c: 4, grid: "2... 13..   ..3.  ...2");
-  List<String> inp= sb.generatePuzzle();
-  //print(sb.generatePuzzle());
-//   sb.displayPuzzle(inp);
-   SudokuBrain sbs = new SudokuBrain(r: 6, c:6, grid: inp.join(''));
-   sbs.solve();
-// //  sbs.displayPuzzle(sol);
-//   sbs.displayPuzzle(inp);
-// sbs.puzzleSolved();
-//   sbs.display();
-//   sbs.displayPuzzle(inp);
-//   print(inp.join(''));
-
-  if(checkPuzz(inp, 6, 6, sbs.getSolution() ,64))
-  {
-    sbs.displayPuzzle(inp);
-     sbs.display();
-
-    print("VALID INPUT!! $inp\n ${inp.join('')} ");
-
-  } else
-    print("BAD input and not consistently solvable $inp\n");
 
   //sbs.getInputAsList();
   //new SudokuBrain(r: 3, c: 3, grid: "1.2 2.3 ..1");

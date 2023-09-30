@@ -36,9 +36,10 @@ class _SudokuAppState extends State<SudokuApp> {
   PuzzleBoardProps?  puzzleProps;
 
 
-   SudokuBrain _sb =
       //  new SudokuBrain(r: 6, c: 6, grid: "21--43--------62----34--------34--56");
-  new SudokuBrain(r: 4, c: 4, grid: "----------------");
+   //SudokuBrain _sb  = gimme_a_puzzle(6,6);
+   SudokuBrain _sb  = gimme_a_puzzle(6,6);
+  //   SudokuBrain(r: 4, c: 4, grid: "----------------");
 
   //
   //    new SudokuBrain(r:6,c:6,grid:"21564363451245623112346556132-342-5-");
