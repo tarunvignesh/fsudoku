@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fsudoku/engine/puzzle.dart';
 import 'package:fsudoku/engine/solver.dart';
 import 'package:fsudoku/engine/variant.dart';
@@ -7,10 +9,26 @@ import 'package:flutter_test/flutter_test.dart';
 /// The first cell the player is allowed to edit.
 int firstBlank(GameController g) => g.values.indexOf(0);
 
+/// A digit that is NOT the solution for [cell].
+///
+/// Correct answers lock their cell, so a test that wants to keep editing has
+/// to say so explicitly rather than hope a digit happens to be wrong.
+int wrongDigitFor(GameController g, int cell) {
+  final right = g.puzzle.solution[cell];
+  for (var d = 1; d <= g.variant.size; d++) {
+    if (d != right) return d;
+  }
+  throw StateError('no wrong digit exists');
+}
+
 void main() {
   late GameController game;
 
-  setUp(() => game = GameController(variant: Variant.four));
+  // Seeded, so every assertion below is about behaviour rather than about
+  // which puzzle happened to be generated.
+  setUp(
+    () => game = GameController(variant: Variant.four, random: Random(2026)),
+  );
   tearDown(() => game.dispose());
 
   group('setup', () {
@@ -41,10 +59,57 @@ void main() {
 
     test('re-entering the same digit clears it', () {
       final cell = firstBlank(game);
+      final wrong = wrongDigitFor(game, cell);
       game.select(cell);
-      game.enter(3);
-      game.enter(3);
+      game.enter(wrong);
+      game.enter(wrong);
       expect(game.values[cell], 0);
+    });
+
+    test('a correct answer locks its cell', () {
+      final cell = firstBlank(game);
+      final right = game.puzzle.solution[cell];
+      game.select(cell);
+      game.enter(right);
+
+      expect(game.isCorrect(cell), isTrue);
+      expect(game.isLocked(cell), isTrue);
+
+      // Neither overwriting nor erasing can disturb a settled cell.
+      game.enter(wrongDigitFor(game, cell));
+      expect(game.values[cell], right);
+      game.clearSelected();
+      expect(game.values[cell], right);
+    });
+
+    test('a wrong answer leaves the cell editable', () {
+      final cell = firstBlank(game);
+      final wrong = wrongDigitFor(game, cell);
+      game.select(cell);
+      game.enter(wrong);
+
+      expect(game.isWrong(cell), isTrue);
+      expect(game.isLocked(cell), isFalse);
+      game.clearSelected();
+      expect(game.values[cell], 0);
+    });
+
+    test('enterNote pencils regardless of mode', () {
+      final cell = firstBlank(game);
+      game.select(cell);
+      expect(game.notesMode, isFalse);
+      game.enterNote(2);
+      expect(game.values[cell], 0);
+      expect(game.notes[cell] & digitBit(2), isNot(0));
+    });
+
+    test('enterAnswer commits regardless of mode', () {
+      final cell = firstBlank(game);
+      final wrong = wrongDigitFor(game, cell);
+      game.select(cell);
+      game.toggleNotesMode();
+      game.enterAnswer(wrong);
+      expect(game.values[cell], wrong);
     });
 
     test('refuses to edit a given', () {
@@ -106,27 +171,62 @@ void main() {
   group('undo and redo', () {
     test('undo restores the previous digit', () {
       final cell = firstBlank(game);
+      final right = game.puzzle.solution[cell];
+      // Two different wrong digits, so neither entry locks the cell.
+      final a = right == 1 ? 2 : 1;
+      final b = (right == 3 || a == 3) ? 4 : 3;
+
       game.select(cell);
-      game.enter(1);
-      game.enter(2); // overwrite
-      expect(game.values[cell], 2);
+      game.enter(a);
+      game.enter(b); // overwrite
+      expect(game.values[cell], b);
       game.undo();
-      expect(game.values[cell], 1);
+      expect(game.values[cell], a);
       game.undo();
       expect(game.values[cell], 0);
       expect(game.canUndo, isFalse);
+    });
+
+    test('undo reverses a correct answer, unlocking the cell', () {
+      final cell = firstBlank(game);
+      game.select(cell);
+      game.enter(game.puzzle.solution[cell]);
+      expect(game.isLocked(cell), isTrue);
+      expect(game.correctMoves, 1);
+
+      game.undo();
+      expect(game.values[cell], 0);
+      expect(game.isLocked(cell), isFalse);
+      expect(game.correctMoves, 0);
+    });
+
+    test('the move counters follow the board', () {
+      final cell = firstBlank(game);
+      game.select(cell);
+      game.enter(wrongDigitFor(game, cell));
+      expect(game.wrongMoves, 1);
+      expect(game.correctMoves, 0);
+
+      game.clearSelected();
+      game.enter(game.puzzle.solution[cell]);
+      expect(game.wrongMoves, 1);
+      expect(game.correctMoves, 1);
+
+      game.undo();
+      expect(game.correctMoves, 0);
     });
 
     // The old implementation could not undo an erase, which is why the action
     // was disabled outright in the last commit before this rewrite.
     test('undo restores an erased digit', () {
       final cell = firstBlank(game);
+      final wrong = wrongDigitFor(game, cell);
       game.select(cell);
-      game.enter(4);
+      game.enter(wrong);
       game.clearSelected();
       expect(game.values[cell], 0);
       game.undo();
-      expect(game.values[cell], 4);
+      expect(game.values[cell], wrong);
     });
 
     test('undo restores pencil marks', () {

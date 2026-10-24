@@ -15,7 +15,13 @@ import 'theme.dart';
 /// Root widget.
 class FSudokuApp extends StatelessWidget {
   /// Creates the app.
-  const FSudokuApp({super.key});
+  ///
+  /// Pass [controller] to drive a specific game, which lets tests work
+  /// against a seeded puzzle instead of a random one.
+  const FSudokuApp({super.key, this.controller});
+
+  /// An externally supplied game, or null to start a fresh one.
+  final GameController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +30,7 @@ class FSudokuApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
-      home: const GamePage(),
+      home: GamePage(controller: controller),
     );
   }
 }
@@ -32,18 +38,25 @@ class FSudokuApp extends StatelessWidget {
 /// The single screen: board, controls and hint explanation.
 class GamePage extends StatefulWidget {
   /// Creates the game page.
-  const GamePage({super.key});
+  const GamePage({super.key, this.controller});
+
+  /// An externally supplied game, or null to start a fresh one.
+  final GameController? controller;
 
   @override
   State<GamePage> createState() => _GamePageState();
 }
 
 class _GamePageState extends State<GamePage> {
-  late final GameController _game = GameController()..onSolved = _announceWin;
+  late final GameController _game = (widget.controller ?? GameController())
+    ..onSolved = _announceWin;
   final FocusNode _keyboard = FocusNode(debugLabel: 'board-keyboard');
 
   @override
   void dispose() {
+    // The page takes ownership of its controller, injected or not, and so
+    // disposes it here. That keeps the controller's clock from outliving the
+    // widget tree, which a caller is easy to forget to do.
     _game.dispose();
     _keyboard.dispose();
     super.dispose();
@@ -63,10 +76,20 @@ class _GamePageState extends State<GamePage> {
     final pressed = HardwareKeyboard.instance;
     final ctrl = pressed.isControlPressed || pressed.isMetaPressed;
 
-    // Digits, from both the number row and the numpad.
+    // While paused the board is hidden, so it accepts nothing but un-pausing.
+    if (_game.paused) {
+      if (key == LogicalKeyboardKey.keyP || key == LogicalKeyboardKey.escape) {
+        _game.togglePause();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    // Digits, from both the number row and the numpad. Shift pencils the
+    // digit without switching modes, mirroring the original's long-press.
     for (var d = 1; d <= _game.variant.size; d++) {
       if (key == _digitKeys[d - 1] || key == _numpadKeys[d - 1]) {
-        _game.enter(d);
+        pressed.isShiftPressed ? _game.enterNote(d) : _game.enter(d);
         return KeyEventResult.handled;
       }
     }
@@ -101,6 +124,8 @@ class _GamePageState extends State<GamePage> {
         _game.toggleNotesMode();
       case LogicalKeyboardKey.keyC:
         _game.toggleCandidates();
+      case LogicalKeyboardKey.keyP:
+        _game.togglePause();
       case LogicalKeyboardKey.keyH:
         _requestHint();
       case LogicalKeyboardKey.enter:
@@ -294,7 +319,20 @@ class _GamePageState extends State<GamePage> {
   }
 
   Widget _board() {
-    return AspectRatio(aspectRatio: 1, child: BoardView(controller: _game));
+    return AspectRatio(
+      aspectRatio: 1,
+      child: AnimatedBuilder(
+        animation: _game,
+        builder: (context, child) => Stack(
+          fit: StackFit.expand,
+          children: [
+            child!,
+            if (_game.paused) _PausedCover(onResume: _game.togglePause),
+          ],
+        ),
+        child: BoardView(controller: _game),
+      ),
+    );
   }
 }
 
@@ -330,6 +368,18 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 const Spacer(),
+                _ScoreChip(
+                  count: game.correctMoves,
+                  icon: Icons.check,
+                  tone: _Tone.good,
+                ),
+                const SizedBox(width: 6),
+                _ScoreChip(
+                  count: game.wrongMoves,
+                  icon: Icons.close,
+                  tone: _Tone.bad,
+                ),
+                const SizedBox(width: 12),
                 ValueListenableBuilder<Duration>(
                   valueListenable: game.elapsed,
                   builder: (context, value, _) => Text(
@@ -376,6 +426,104 @@ class _Header extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Covers a paused board with an invitation to resume.
+///
+/// The board itself already stops drawing its digits while paused; this just
+/// says why, and gives the pointer somewhere obvious to go.
+class _PausedCover extends StatelessWidget {
+  const _PausedCover({required this.onResume});
+
+  final VoidCallback onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: onResume,
+        behavior: HitTestBehavior.opaque,
+        child: ColoredBox(
+          color: theme.colorScheme.surface.withValues(alpha: 0.55),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.pause_circle_outline,
+                  size: 44,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 10),
+                Text('Paused', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  'Click the board or press P to resume',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Which way a score chip reads.
+enum _Tone { good, bad }
+
+/// A compact count of correct or mistaken answers.
+///
+/// The original tracked these with animated badges; the information was worth
+/// keeping, the animation on every increment was not.
+class _ScoreChip extends StatelessWidget {
+  const _ScoreChip({
+    required this.count,
+    required this.icon,
+    required this.tone,
+  });
+
+  final int count;
+  final IconData icon;
+  final _Tone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = theme.extension<BoardPalette>()!;
+    final color = tone == _Tone.good
+        ? theme.colorScheme.tertiary
+        : palette.conflictText;
+
+    return Tooltip(
+      message: tone == _Tone.good ? 'Correct answers' : 'Mistakes',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(
+              '$count',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -428,6 +576,12 @@ class _Toolbar extends StatelessWidget {
               icon: Icons.lightbulb_outline,
               label: 'Hint',
               onPressed: onHint,
+            ),
+            _ToolButton(
+              icon: game.paused ? Icons.play_arrow : Icons.pause,
+              label: game.paused ? 'Resume' : 'Pause',
+              selected: game.paused,
+              onPressed: game.togglePause,
             ),
           ],
         );
@@ -511,10 +665,12 @@ class _KeyboardLegend extends StatelessWidget {
     ('1-9', 'enter a digit'),
     ('arrows / WASD', 'move selection'),
     ('backspace', 'erase'),
+    ('shift+1-9', 'pencil a digit'),
     ('N', 'notes mode'),
     ('C', 'show candidates'),
     ('H', 'hint'),
     ('space', 'place the hint'),
+    ('P', 'pause'),
     ('ctrl+Z', 'undo'),
   ];
 

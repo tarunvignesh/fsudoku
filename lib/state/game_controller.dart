@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -24,6 +25,7 @@ class _Move {
     required this.beforeNotes,
     required this.afterNotes,
     required this.peerNotesBefore,
+    required this.scoreDelta,
   });
 
   final int cell;
@@ -34,6 +36,12 @@ class _Move {
 
   /// Notes this move cleaned out of peer cells, so undo can put them back.
   final Map<int, int> peerNotesBefore;
+
+  /// How this move changed the move counters: +1 correct, -1 wrong, 0 neither.
+  ///
+  /// Carried on the move so undo reverses the score instead of leaving the
+  /// counters drifting away from the board.
+  final int scoreDelta;
 }
 
 /// Drives one game of Sudoku.
@@ -43,17 +51,21 @@ class _Move {
 /// one layer rather than a rebuild of every cell.
 class GameController extends ChangeNotifier {
   /// Starts a game on [variant] at [difficulty].
+  /// Pass [random] to generate reproducible puzzles, which tests rely on.
   GameController({
     Variant variant = Variant.nine,
     Difficulty difficulty = Difficulty.gentle,
+    Random? random,
   }) {
     _variant = variant;
     _difficulty = difficulty;
+    _random = random;
     _start();
   }
 
   late Variant _variant;
   late Difficulty _difficulty;
+  Random? _random;
 
   late Puzzle _puzzle;
   late List<int> _values;
@@ -69,6 +81,16 @@ class GameController extends ChangeNotifier {
   Hint? _hint;
   int _hintsUsed = 0;
   bool _solved = false;
+  bool _paused = false;
+
+  int _correctMoves = 0;
+  int _wrongMoves = 0;
+
+  /// Cells of a unit the player just completed correctly.
+  ///
+  /// Drives the completion flourish; cleared when the next edit lands.
+  Set<int> _celebrated = const {};
+  int _celebrationTick = 0;
 
   final Stopwatch _clock = Stopwatch();
   Timer? _ticker;
@@ -133,16 +155,45 @@ class GameController extends ChangeNotifier {
   /// Whether the clock is running.
   bool get isRunning => _clock.isRunning;
 
+  /// Whether play is paused and the board hidden.
+  bool get paused => _paused;
+
+  /// Answers entered that matched the solution.
+  int get correctMoves => _correctMoves;
+
+  /// Answers entered that did not.
+  int get wrongMoves => _wrongMoves;
+
+  /// Cells of the most recently completed row, column or box.
+  Set<int> get celebrated => _celebrated;
+
+  /// Increments each time a unit is completed, so the view can retrigger.
+  int get celebrationTick => _celebrationTick;
+
   /// Cells still empty.
   int get remaining => _values.where((v) => v == 0).length;
 
   /// True when [cell] came with the puzzle and cannot be edited.
   bool isGiven(int cell) => _puzzle.isGiven(cell);
 
+  /// True when [cell] holds the digit the solution requires.
+  bool isCorrect(int cell) =>
+      _values[cell] != 0 && _values[cell] == _puzzle.solution[cell];
+
+  /// True when [cell] holds a digit that is not the solution's.
+  bool isWrong(int cell) =>
+      _values[cell] != 0 && _values[cell] != _puzzle.solution[cell];
+
+  /// True when [cell] can no longer be edited.
+  ///
+  /// Givens are fixed, and so is any answer the player has got right: settled
+  /// cells stay settled, so progress cannot be undone by a stray keystroke.
+  bool isLocked(int cell) => isGiven(cell) || isCorrect(cell);
+
   // ------------------------------------------------------------- lifecycle
 
   void _start() {
-    _puzzle = Generator(_variant).generate(_difficulty);
+    _puzzle = Generator(_variant, random: _random).generate(_difficulty);
     _values = List<int>.of(_puzzle.givens);
     _notes = List<int>.filled(_variant.cellCount, 0);
     _undo.clear();
@@ -152,6 +203,10 @@ class GameController extends ChangeNotifier {
     _hintsUsed = 0;
     _solved = false;
     _notesMode = false;
+    _paused = false;
+    _correctMoves = 0;
+    _wrongMoves = 0;
+    _celebrated = const {};
     _reanalyse();
 
     _clock
@@ -180,6 +235,10 @@ class GameController extends ChangeNotifier {
     _redo.clear();
     _hint = null;
     _solved = false;
+    _paused = false;
+    _correctMoves = 0;
+    _wrongMoves = 0;
+    _celebrated = const {};
     _reanalyse();
     _clock
       ..reset()
@@ -188,8 +247,15 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Hides the board and stops the clock, or reveals it again.
+  ///
+  /// Hiding the grid on pause is deliberate: leaving a solved-in-progress
+  /// board on screen while the clock is stopped is free thinking time.
+  void togglePause() => setPaused(paused: !_paused);
+
   /// Pauses or resumes the clock.
   void setPaused({required bool paused}) {
+    _paused = paused;
     if (paused && _clock.isRunning) {
       _clock.stop();
     } else if (!paused && !_clock.isRunning && !_solved) {
@@ -250,24 +316,42 @@ class GameController extends ChangeNotifier {
   ///
   /// Entering the digit already in the cell clears it, so the same key both
   /// sets and unsets.
-  void enter(int digit) {
-    final cell = _selected;
-    if (cell == null || digit < 1 || digit > _variant.size) return;
-    if (isGiven(cell)) return;
+  void enter(int digit) => _notesMode ? enterNote(digit) : enterAnswer(digit);
 
-    if (_notesMode) {
-      _apply(cell, value: _values[cell], notes: _notes[cell] ^ digitBit(digit));
-      return;
-    }
-
+  /// Commits [digit] as the answer in the selected cell, whatever mode is set.
+  ///
+  /// Entering the digit already there clears it, so the same key both sets and
+  /// unsets.
+  void enterAnswer(int digit) {
+    final cell = _editableTarget(digit);
+    if (cell == null) return;
     final next = _values[cell] == digit ? 0 : digit;
     _apply(cell, value: next, notes: 0, clearPeerNotes: next != 0);
+  }
+
+  /// Toggles [digit] as a pencil mark, whatever mode is set.
+  ///
+  /// Having both actions reachable without switching modes is deliberate: the
+  /// original app chose between them by gesture, so there was no mode to be in
+  /// and no mode error to make.
+  void enterNote(int digit) {
+    final cell = _editableTarget(digit);
+    if (cell == null) return;
+    _apply(cell, value: _values[cell], notes: _notes[cell] ^ digitBit(digit));
+  }
+
+  /// The selected cell, if [digit] is valid and the cell still takes input.
+  int? _editableTarget(int digit) {
+    final cell = _selected;
+    if (cell == null || digit < 1 || digit > _variant.size) return null;
+    if (isLocked(cell)) return null;
+    return cell;
   }
 
   /// Clears the selected cell's answer and pencil marks.
   void clearSelected() {
     final cell = _selected;
-    if (cell == null || isGiven(cell)) return;
+    if (cell == null || isLocked(cell)) return;
     if (_values[cell] == 0 && _notes[cell] == 0) return;
     _apply(cell, value: 0, notes: 0);
   }
@@ -290,6 +374,17 @@ class GameController extends ChangeNotifier {
       }
     }
 
+    // Only entering an answer scores; clearing and pencilling do not.
+    var scoreDelta = 0;
+    if (value != 0 && value != _values[cell]) {
+      scoreDelta = value == _puzzle.solution[cell] ? 1 : -1;
+      if (scoreDelta == 1) {
+        _correctMoves++;
+      } else {
+        _wrongMoves++;
+      }
+    }
+
     final move = _Move(
       cell: cell,
       beforeValue: _values[cell],
@@ -297,6 +392,7 @@ class GameController extends ChangeNotifier {
       beforeNotes: _notes[cell],
       afterNotes: notes,
       peerNotesBefore: peerNotesBefore,
+      scoreDelta: scoreDelta,
     );
 
     _values[cell] = value;
@@ -304,6 +400,18 @@ class GameController extends ChangeNotifier {
     _undo.add(move);
     _redo.clear();
     _hint = null;
+    _reanalyse();
+
+    final completed = scoreDelta == 1
+        ? _completedUnitsAround(cell)
+        : const <int>{};
+    if (completed.isNotEmpty) {
+      _celebrated = completed;
+      _celebrationTick++;
+    } else if (_celebrated.isNotEmpty) {
+      _celebrated = const {};
+    }
+
     _afterEdit();
   }
 
@@ -314,6 +422,7 @@ class GameController extends ChangeNotifier {
     _values[move.cell] = move.beforeValue;
     _notes[move.cell] = move.beforeNotes;
     move.peerNotesBefore.forEach((peer, before) => _notes[peer] = before);
+    _applyScore(move.scoreDelta, -1);
     _redo.add(move);
     _selected = move.cell;
     _hint = null;
@@ -332,6 +441,7 @@ class GameController extends ChangeNotifier {
         _notes[peer] &= ~bit;
       }
     }
+    _applyScore(move.scoreDelta, 1);
     _undo.add(move);
     _selected = move.cell;
     _hint = null;
@@ -373,6 +483,34 @@ class GameController extends ChangeNotifier {
   // --------------------------------------------------------------- internals
 
   void _reanalyse() => _analysis = BoardAnalysis(_variant, _values);
+
+  /// Adds a move's score contribution to the counters, or removes it.
+  ///
+  /// [scoreDelta] says which counter the move touched (+1 correct, -1 wrong);
+  /// [sign] says whether it is being applied (+1) or reversed (-1). Keeping
+  /// those separate matters: negating [scoreDelta] to undo would move the
+  /// count onto the opposite counter.
+  void _applyScore(int scoreDelta, int sign) {
+    if (scoreDelta == 1) {
+      _correctMoves += sign;
+    } else if (scoreDelta == -1) {
+      _wrongMoves += sign;
+    }
+  }
+
+  /// Cells of every unit containing [cell] that is now complete and correct.
+  ///
+  /// Checked against the solution rather than merely "full and conflict-free",
+  /// so the flourish only fires on genuine progress.
+  Set<int> _completedUnitsAround(int cell) {
+    final cells = <int>{};
+    for (final unit in _analysis.geometry.units[cell]) {
+      if (unit.every((c) => _values[c] == _puzzle.solution[c])) {
+        cells.addAll(unit);
+      }
+    }
+    return cells;
+  }
 
   void _afterEdit() {
     _reanalyse();

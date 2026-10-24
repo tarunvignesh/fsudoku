@@ -1,0 +1,24 @@
+# Netlify / Cloudflare Pages read this file from the published directory.
+# Flutter copies everything under web/ into build/web, so it ships as-is.
+#
+# Cross-origin isolation is what lets the WasmGC renderer use web workers for
+# multi-threaded rasterisation. Without these two headers it still runs, just
+# on a single thread. GitHub Pages cannot set headers at all, which is why the
+# Pages workflow builds the CanvasKit target instead of --wasm.
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+# Hashed build outputs never change under the same name.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/canvaskit/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The entry points must not be cached, or a deploy never reaches anyone.
+/index.html
+  Cache-Control: no-cache
+/flutter_bootstrap.js
+  Cache-Control: no-cache
+/flutter_service_worker.js
+  Cache-Control: no-cache

@@ -6,6 +6,16 @@ technique that cracks the next cell and explains why it works.
 
 Flutter, targeting the web first. No runtime dependencies.
 
+Started during the COVID lockdowns as a way to learn Flutter, and rebuilt in
+2026. Two debts worth naming up front: the solver is a port of
+**[Peter Norvig's constraint-propagation essay][norvig]**, which is still the
+clearest explanation of why Sudoku yields to two simple rules; and the idea
+that a Sudoku app should *teach* rather than merely test owes a lot to
+**[KrazyDad's puzzles][krazydad]** and the care he puts into graded difficulty.
+
+[norvig]: https://norvig.com/sudoku.html
+[krazydad]: https://krazydad.com/sudoku/
+
 ![The hint system explaining a deduction](docs/screenshots/hint-dark.png)
 
 ## Why the three board sizes
@@ -44,6 +54,24 @@ by deduction alone. `Tricky` digs as deep as uniqueness allows and then tells
 you the truth about what it produced — roughly half of 9×9 `Tricky` boards
 genuinely require a guess, and the app says which.
 
+**Immediate correctness.** A wrong digit turns red as you type it; a right one
+settles and locks, so finished cells cannot be disturbed by a stray keystroke.
+Completing a row, column or box flashes it. Counters track right and wrong
+answers, and pausing hides the board rather than just stopping the clock.
+
+**Pencil marks you can tell apart.** Your own marks are drawn rotated a quarter
+turn; the app's computed candidates are not. That separation — *I think* versus
+*I know* — is carried over from the first version of this app, where the whole
+cell rotated. Here only the mark layer does, so block separators stay on the
+right edges.
+
+Your rotated pencil marks beside the app's upright candidates, and the digit
+menu open on a cell:
+
+| Pencil marks | Cell menu |
+| --- | --- |
+| ![](docs/screenshots/pencil-dark.png) | ![](docs/screenshots/cell-menu-dark.png) |
+
 | Candidates | Light | Narrow |
 | --- | --- | --- |
 | ![](docs/screenshots/candidates-dark.png) | ![](docs/screenshots/board-light.png) | ![](docs/screenshots/mobile-dark.png) |
@@ -61,8 +89,16 @@ Fully playable from the keyboard, which is how most people will use it on the we
 | `C` | Toggle candidate marks |
 | `H` | Explain the next move |
 | `Space` / `Enter` | Place the explained move |
+| `Shift`+`1`–`9` | Pencil a digit without changing mode |
+| `P` | Pause (hides the board) |
 | `Ctrl`+`Z` / `Ctrl`+`Shift`+`Z` | Undo / redo |
 | `Esc` | Dismiss the hint, then clear the selection |
+
+Pointer input works the way the original did: **click a cell** for the answer
+menu, **long-press or right-click** for the pencil menu. The menu opens on the
+cell, so entry costs no pointer travel, and its digits are laid out on the
+variant's own box grid — the same arrangement the board and the pencil marks
+use.
 
 ## Architecture
 
@@ -77,7 +113,8 @@ lib/
   state/
     game_controller.dart   the board being played, undo/redo, clock
   ui/
-    board/          the canvas board: painter, glyph cache, hit testing
+    board/          the canvas board: painter, glyph cache, hit testing,
+                    and the digit menu that opens on a cell
     theme.dart      colour scheme + board design tokens
 ```
 
@@ -124,7 +161,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 71 tests, ~5s
+flutter test                   # 81 tests, ~7s
 flutter analyze
 ```
 
@@ -137,13 +174,20 @@ flutter build web --release --wasm     # skwasm (WasmGC), with a JS fallback
 
 ### Deploying
 
-Serve with **cross-origin isolation** or the renderer silently drops to a single
-thread:
+`.github/workflows/deploy.yaml` publishes to **GitHub Pages** on every push to
+`master`. It builds the CanvasKit target deliberately: Pages cannot set response
+headers, and the WasmGC renderer needs **cross-origin isolation** to use web
+workers —
 
 ```
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
+
+— or it silently drops to a single thread. To ship `--wasm`, host somewhere
+that can set headers; `web/_headers` already carries them for Netlify and
+Cloudflare Pages, along with cache rules, and Flutter copies it into the build
+output as-is.
 
 Serve `.wasm` and `.js` with Brotli. Be aware of what Flutter web costs: the
 WasmGC path is ~2.1 MB gzipped on first load, and ~1.5 MB of that is the Skia
@@ -152,18 +196,26 @@ after the first visit.
 
 ## Status
 
-Chrome-first and feature-complete for the web. iOS is the next target; the
-platform scaffolding is current and the engine needs no changes to get there.
+Playable and feature-complete on the web. **[Known gaps and technical
+debt](docs/TECH_DEBT.md)** is the honest list — the one worth reading first is
+that the canvas board exposes no semantics, so it is unusable with a screen
+reader, and that nothing is persisted across a reload.
 
-The application id is `io.github.conatarun.fsudoku` — a neutral namespace, worth
-changing before any store submission.
+iOS is the next target. The engine needs no changes to get there; the platform
+scaffolding is current. The application id is `io.github.conatarun.fsudoku`, a
+neutral namespace worth changing before any store submission.
 
 ## History
 
-This started years ago as a first Flutter project and was rewritten in 2026. The
-original was pre-null-safety Dart 2.7 with six abandoned UI dependencies and
-`dart:io` imports that could never have compiled for the web. The constraint
-solver survived the rewrite; everything above it is new.
+Built during the COVID lockdowns as a first Flutter project, and rewritten in
+2026. The original was pre-null-safety Dart 2.7, with six abandoned UI
+dependencies and `dart:io` imports that could never have compiled for the web.
+
+The constraint solver survived, reworked onto bitmasks. So did the interaction
+design: the at-cell digit menus, the long-press pencil, rotated pencil marks,
+immediate right/wrong feedback, locking solved cells, the completion flash, the
+move counters, and pausing by hiding the board are all the original's ideas,
+rebuilt rather than replaced.
 
 ## License
 

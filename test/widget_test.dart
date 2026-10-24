@@ -1,7 +1,13 @@
+import 'dart:math';
+
 import 'package:fsudoku/engine/variant.dart';
+import 'package:fsudoku/state/game_controller.dart';
+import 'package:fsudoku/ui/board/board_view.dart';
+import 'package:fsudoku/ui/board/cell_menu.dart';
 import 'package:fsudoku/ui/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fsudoku/engine/solver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Sends a key through the real shortcut handling, as a player would.
@@ -85,16 +91,30 @@ void main() {
 
     final before = statusLine(tester);
 
-    // Select the top-left cell, then walk right until an editable cell takes
-    // a digit. Which cells are blank depends on the generated puzzle.
-    await press(tester, LogicalKeyboardKey.arrowRight);
-    for (var i = 0; i < 16; i++) {
-      await press(tester, LogicalKeyboardKey.digit1);
-      if (statusLine(tester) != before) break;
-      await press(tester, LogicalKeyboardKey.arrowRight);
+    // Puzzles are generated at random, so which cells are editable varies.
+    // Raster-scan the whole board rather than walking a diagonal: every
+    // puzzle has blanks, so an exhaustive sweep always finds one, and the
+    // test cannot depend on where they happened to land.
+    await press(tester, LogicalKeyboardKey.arrowRight); // select (0, 0)
+    var entered = false;
+    for (var row = 0; row < 4 && !entered; row++) {
+      for (var col = 0; col < 4; col++) {
+        await press(tester, LogicalKeyboardKey.digit1);
+        if (statusLine(tester) != before) {
+          entered = true;
+          break;
+        }
+        await press(tester, LogicalKeyboardKey.arrowRight);
+      }
+      if (entered) break;
+      // Back to column 0 (arrow movement clamps) and down a row.
+      for (var i = 0; i < 4; i++) {
+        await press(tester, LogicalKeyboardKey.arrowLeft);
+      }
       await press(tester, LogicalKeyboardKey.arrowDown);
     }
 
+    expect(entered, isTrue, reason: 'no editable cell found on the board');
     expect(statusLine(tester), isNot(before));
   });
 
@@ -171,5 +191,130 @@ void main() {
       expect(tester.takeException(), isNull, reason: '$brightness');
     }
     tester.platformDispatcher.clearPlatformBrightnessTestValue();
+  });
+
+  group('cell menu', () {
+    /// Taps the centre of [cell] on the painted board.
+    Future<void> tapCell(
+      WidgetTester tester,
+      GameController game,
+      int cell,
+    ) async {
+      final box = tester.renderObject<RenderBox>(find.byType(BoardView));
+      final board = box.size.shortestSide;
+      final n = game.variant.size;
+      final size = board / n;
+      final origin = tester.getTopLeft(find.byType(BoardView));
+      await tester.tapAt(
+        origin +
+            Offset((cell % n) * size + size / 2, (cell ~/ n) * size + size / 2),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('opens on an editable cell and writes an answer', (
+      tester,
+    ) async {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      expect(find.byType(CellMenu), findsNothing);
+
+      final blank = game.values.indexOf(0);
+      await tapCell(tester, game, blank);
+      expect(find.byType(CellMenu), findsOneWidget);
+
+      // The menu offers exactly the variant's digits, laid out on its boxes.
+      final wrong = game.puzzle.solution[blank] == 1 ? 2 : 1;
+      await tester.tap(
+        find.descendant(
+          of: find.byType(CellMenu),
+          matching: find.text('$wrong'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(game.values[blank], wrong);
+      // Picking an answer closes the menu.
+      expect(find.byType(CellMenu), findsNothing);
+    });
+
+    testWidgets('does not open on a locked cell', (tester) async {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      final given = game.values.indexWhere((v) => v != 0);
+      await tapCell(tester, game, given);
+      expect(find.byType(CellMenu), findsNothing);
+
+      // A cell answered correctly locks, and stops offering a menu too.
+      final blank = game.values.indexOf(0);
+      game
+        ..select(blank)
+        ..enterAnswer(game.puzzle.solution[blank]);
+      await tester.pumpAndSettle();
+
+      await tapCell(tester, game, blank);
+      expect(find.byType(CellMenu), findsNothing);
+    });
+
+    testWidgets('long press opens the menu in pencil mode', (tester) async {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      final blank = game.values.indexOf(0);
+      final box = tester.renderObject<RenderBox>(find.byType(BoardView));
+      final board = box.size.shortestSide;
+      final n = game.variant.size;
+      final size = board / n;
+      final origin = tester.getTopLeft(find.byType(BoardView));
+      await tester.longPressAt(
+        origin +
+            Offset(
+              (blank % n) * size + size / 2,
+              (blank ~/ n) * size + size / 2,
+            ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CellMenu), findsOneWidget);
+      expect(find.text('Pencil'), findsOneWidget);
+
+      // Picking pencils rather than answering, and leaves the menu up so
+      // several marks can be made in one visit.
+      await tester.tap(
+        find.descendant(of: find.byType(CellMenu), matching: find.text('2')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(game.values[blank], 0);
+      expect(game.notes[blank] & digitBit(2), isNot(0));
+      expect(find.byType(CellMenu), findsOneWidget);
+    });
+
+    testWidgets('pausing hides the board and blocks entry', (tester) async {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      final blank = game.values.indexOf(0);
+      game.select(blank);
+
+      await press(tester, LogicalKeyboardKey.keyP);
+      await tester.pumpAndSettle();
+      expect(game.paused, isTrue);
+      expect(find.text('Paused'), findsOneWidget);
+
+      await press(tester, LogicalKeyboardKey.digit1);
+      expect(game.values[blank], 0, reason: 'paused boards take no input');
+
+      await press(tester, LogicalKeyboardKey.keyP);
+      await tester.pumpAndSettle();
+      expect(game.paused, isFalse);
+      expect(find.text('Paused'), findsNothing);
+    });
   });
 }

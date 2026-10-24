@@ -1,6 +1,8 @@
 /// Draws the whole board onto one canvas layer.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
@@ -27,6 +29,9 @@ class BoardRender {
     required this.givens,
     required this.candidates,
     required this.conflictCells,
+    required this.wrongCells,
+    required this.celebrated,
+    required this.paused,
     required this.showCandidates,
     required this.palette,
     required this.devicePixelRatio,
@@ -35,6 +40,7 @@ class BoardRender {
     this.hint,
     this.selectionProgress = 1,
     this.hintProgress = 1,
+    this.celebrationProgress = 1,
   });
 
   final Variant variant;
@@ -52,6 +58,15 @@ class BoardRender {
 
   /// Cells involved in a duplicate-digit clash.
   final Set<int> conflictCells;
+
+  /// Filled cells whose digit is not the one the solution requires.
+  final Set<int> wrongCells;
+
+  /// Cells of a row, column or box the player just completed correctly.
+  final Set<int> celebrated;
+
+  /// Whether play is paused, in which case the board's contents are hidden.
+  final bool paused;
 
   /// Whether to draw computed candidates in empty cells.
   final bool showCandidates;
@@ -73,6 +88,9 @@ class BoardRender {
 
   /// Eases the hint wash in, 0 to 1.
   final double hintProgress;
+
+  /// Runs 0 to 1 as the completion flourish plays out.
+  final double celebrationProgress;
 }
 
 /// Paints the board: box shading, highlights, grid lines and digits.
@@ -112,9 +130,14 @@ class BoardPainter extends CustomPainter {
     canvas.drawRRect(outer, Paint()..color = r.palette.surface);
 
     _paintBoxTints(canvas, edges, n);
-    _paintHighlights(canvas, edges, n);
+    if (!r.paused) {
+      _paintHighlights(canvas, edges, n);
+      _paintCelebration(canvas, edges);
+    }
     _paintGrid(canvas, edges, n, board);
-    _paintDigits(canvas, edges, n, cell);
+    // Pausing hides the digits, not just the clock, so a paused board cannot
+    // be studied for free.
+    if (!r.paused) _paintDigits(canvas, edges, n, cell);
 
     canvas.restore();
 
@@ -228,6 +251,26 @@ class BoardPainter extends CustomPainter {
     }
   }
 
+  /// Washes a just-completed row, column or box, fading as the flourish ends.
+  void _paintCelebration(Canvas canvas, List<double> edges) {
+    final r = render;
+    if (r.celebrated.isEmpty || r.celebrationProgress >= 1) return;
+
+    // Rise quickly, fall away slowly: a flash of acknowledgement, not a pulse
+    // that competes with the player's next move.
+    final t = r.celebrationProgress;
+    final strength = t < 0.25 ? t / 0.25 : 1 - ((t - 0.25) / 0.75);
+    final base = r.palette.completedUnitFill;
+    final paint = Paint()..color = base.withValues(alpha: base.a * strength);
+
+    for (final c in r.celebrated) {
+      canvas.drawRect(
+        _cellRect(edges, r.geometry.rowOf[c], r.geometry.colOf[c]),
+        paint,
+      );
+    }
+  }
+
   void _paintGrid(Canvas canvas, List<double> edges, int n, double board) {
     final r = render;
     final thin = Paint()
@@ -262,10 +305,12 @@ class BoardPainter extends CustomPainter {
       final value = r.values[i];
 
       if (value != 0) {
-        final role = r.conflictCells.contains(i)
-            ? GlyphRole.conflict
-            : r.givens[i] != 0
+        // Givens, the player's correct answers, and the player's mistakes
+        // each read differently, so progress is legible at a glance.
+        final role = r.givens[i] != 0
             ? GlyphRole.given
+            : r.wrongCells.contains(i)
+            ? GlyphRole.conflict
             : GlyphRole.entry;
         final glyph = cache.glyph(role, value);
         glyph.paint(
@@ -293,8 +338,27 @@ class BoardPainter extends CustomPainter {
 
   /// Lays marks out on the box's own grid, so a 6x6 board's notes sit in the
   /// same 3-wide, 2-tall arrangement as its boxes.
+  ///
+  /// The player's own pencil marks are drawn rotated a quarter turn. That is
+  /// carried over from the original app, where it separated "I think" from
+  /// "I know" at a glance, and it does the same job here between hand-written
+  /// marks and the candidates the app computed. Only the mark layer turns --
+  /// rotating the whole cell, as the original did, would carry its block
+  /// separator borders around onto the wrong edges.
   void _paintMarks(Canvas canvas, Rect rect, int mask, GlyphRole role) {
     final r = render;
+    final rotate = role == GlyphRole.note;
+
+    if (rotate) {
+      canvas.save();
+      // A quarter turn about the centre of a square maps the cell onto
+      // itself, so the marks stay within their own cell.
+      canvas
+        ..translate(rect.center.dx, rect.center.dy)
+        ..rotate(math.pi / 2)
+        ..translate(-rect.center.dx, -rect.center.dy);
+    }
+
     final cols = r.variant.boxCols;
     final rows = r.variant.boxRows;
     final inset = rect.deflate(rect.width * 0.08);
@@ -308,6 +372,8 @@ class BoardPainter extends CustomPainter {
       final glyph = cache.glyph(role, digit);
       glyph.paint(canvas, Offset(cx - glyph.width / 2, cy - glyph.height / 2));
     }
+
+    if (rotate) canvas.restore();
   }
 
   @override
@@ -319,6 +385,10 @@ class BoardPainter extends CustomPainter {
         a.hovered != b.hovered ||
         a.hint != b.hint ||
         a.showCandidates != b.showCandidates ||
+        a.paused != b.paused ||
+        a.celebrationProgress != b.celebrationProgress ||
+        !setEquals(a.wrongCells, b.wrongCells) ||
+        !setEquals(a.celebrated, b.celebrated) ||
         a.selectionProgress != b.selectionProgress ||
         a.hintProgress != b.hintProgress ||
         a.palette != b.palette ||
