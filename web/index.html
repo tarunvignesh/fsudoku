@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Learn Sudoku on 4x4, 6x6 and 9x9 boards, with candidate marks, explained hints and live conflict feedback.">
+
+  <!-- Follows the OS theme so the loading screen matches the app. -->
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F6FA">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0E1116">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Sudoku Trainer">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Sudoku Trainer</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* The page is painted in the app's own colours before Flutter boots, so
+       there is no white flash and no visible hand-off when it does. */
+    :root {
+      --bg: #F4F6FA;
+      --grid: rgba(28, 32, 51, 0.16);
+      --ink: rgba(28, 32, 51, 0.55);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E1116;
+        --grid: rgba(255, 255, 255, 0.14);
+        --ink: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      overscroll-behavior: none;
+    }
+
+    body {
+      font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      transition: opacity 260ms ease-out;
+    }
+
+    /* A 3x3 grid that fills itself in: the loading state says "Sudoku"
+       without needing a logo asset or a spinner. */
+    #boot .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 20px);
+      grid-template-rows: repeat(3, 20px);
+      gap: 3px;
+    }
+    #boot .grid i {
+      background: var(--grid);
+      border-radius: 3px;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    #boot .grid i:nth-child(1) { animation-delay: 0ms; }
+    #boot .grid i:nth-child(2) { animation-delay: 90ms; }
+    #boot .grid i:nth-child(3) { animation-delay: 180ms; }
+    #boot .grid i:nth-child(4) { animation-delay: 90ms; }
+    #boot .grid i:nth-child(5) { animation-delay: 180ms; }
+    #boot .grid i:nth-child(6) { animation-delay: 270ms; }
+    #boot .grid i:nth-child(7) { animation-delay: 180ms; }
+    #boot .grid i:nth-child(8) { animation-delay: 270ms; }
+    #boot .grid i:nth-child(9) { animation-delay: 360ms; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.25; }
+      50%      { opacity: 1; }
+    }
+
+    /* Respect a reduced-motion preference rather than animating regardless. */
+    @media (prefers-reduced-motion: reduce) {
+      #boot .grid i { animation: none; opacity: 0.6; }
+      #boot { transition: none; }
+    }
+
+    #boot.done { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="boot">
+    <div class="grid" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+    <p>Loading Sudoku Trainer</p>
+  </div>
+
+  <script>
+    // Fade the boot screen once Flutter has painted its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+      boot.classList.add('done');
+      boot.addEventListener('transitionend', function () { boot.remove(); });
+      // Belt and braces, in case the transition never fires.
+      setTimeout(function () { boot.remove(); }, 800);
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

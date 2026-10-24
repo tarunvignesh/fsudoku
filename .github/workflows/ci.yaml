@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.8
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      # Both web targets must stay buildable: skwasm is the default path and
+      # CanvasKit is the fallback for browsers without WasmGC.
+      - name: Build web (CanvasKit)
+        run: flutter build web --release --no-wasm-dry-run
+
+      - name: Build web (WasmGC)
+        run: flutter build web --release --wasm
