@@ -230,43 +230,49 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
           onExit: (_) {
             if (_hovered != null) setState(() => _hovered = null);
           },
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (d) => _selectAt(d.localPosition, board),
-            onTap: () {
-              final selected = widget.controller.selected;
-              if (selected != null) {
-                _openMenuOn(selected, CellMenuMode.answer);
-              }
-            },
-            // Long press on touch, right click with a mouse: the same gesture
-            // the original used to pencil without committing a move.
-            onLongPressStart: (d) =>
-                _openMenu(d.localPosition, board, CellMenuMode.pencil),
-            onSecondaryTapDown: (d) =>
-                _openMenu(d.localPosition, board, CellMenuMode.pencil),
-            child: AnimatedBuilder(
-              animation: Listenable.merge([
-                widget.controller,
-                _selection,
-                _hintFade,
-                _celebrate,
-              ]),
-              builder: (context, _) {
-                final c = widget.controller;
-                final analysis = c.analysis;
-                final conflicts = <int>{
-                  for (final conflict in analysis.conflicts()) conflict.cell,
-                };
-                final wrong = <int>{
-                  for (var i = 0; i < c.values.length; i++)
-                    if (c.isWrong(i)) i,
-                };
+          child: AnimatedBuilder(
+            animation: Listenable.merge([
+              widget.controller,
+              _selection,
+              _hintFade,
+              _celebrate,
+            ]),
+            builder: (context, _) {
+              final c = widget.controller;
+              final analysis = c.analysis;
+              final conflicts = <int>{
+                for (final conflict in analysis.conflicts()) conflict.cell,
+              };
+              final wrong = <int>{
+                for (var i = 0; i < c.values.length; i++)
+                  if (c.isWrong(i)) i,
+              };
 
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CustomPaint(
+              return Stack(
+                children: [
+                  // The menu is a SIBLING above this detector, never a child.
+                  // As a child, pressing one of its digits also fed the
+                  // board's onTapDown -- which fires on the press-timeout
+                  // deadline whether or not it wins the arena -- re-selecting
+                  // the cell underneath and closing the menu before the
+                  // button's onTap could run. Instantaneous synthetic taps
+                  // never hit that deadline, so only real presses broke.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (d) => _selectAt(d.localPosition, board),
+                    onTap: () {
+                      final selected = widget.controller.selected;
+                      if (selected != null) {
+                        _openMenuOn(selected, CellMenuMode.answer);
+                      }
+                    },
+                    // Long press on touch, right click with a mouse: the
+                    // gesture the original used to pencil without committing.
+                    onLongPressStart: (d) =>
+                        _openMenu(d.localPosition, board, CellMenuMode.pencil),
+                    onSecondaryTapDown: (d) =>
+                        _openMenu(d.localPosition, board, CellMenuMode.pencil),
+                    child: CustomPaint(
                       size: Size.square(board),
                       isComplex: true,
                       willChange:
@@ -305,12 +311,12 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
                         ),
                       ),
                     ),
-                    if (_menuCell != null && !c.paused)
-                      _positionedMenu(context, c, board),
-                  ],
-                );
-              },
-            ),
+                  ),
+                  if (_menuCell != null && !c.paused)
+                    _positionedMenu(context, c, board),
+                ],
+              );
+            },
           ),
         );
       },

@@ -359,6 +359,73 @@ void main() {
       expect(find.byType(CellMenu), findsNothing);
     });
 
+    testWidgets('a real-speed press on a digit enters it', (tester) async {
+      // tester.tap() presses and releases in the same instant, which never
+      // reaches the ~100ms press-timeout deadline that makes a parent
+      // GestureDetector fire onTapDown. A human always does. This holds the
+      // press long enough to reproduce that, which is what a plain tap test
+      // missed entirely.
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      final blank = game.values.indexOf(0);
+      await tapCell(tester, game, blank);
+      expect(find.byType(CellMenu), findsOneWidget);
+
+      final wrong = game.puzzle.solution[blank] == 1 ? 2 : 1;
+      final target = find.descendant(
+        of: find.byType(CellMenu),
+        matching: find.text('$wrong'),
+      );
+
+      final press = await tester.startGesture(tester.getCenter(target));
+      await tester.pump(const Duration(milliseconds: 250));
+      await press.up();
+      await tester.pumpAndSettle();
+
+      expect(
+        game.values[blank],
+        wrong,
+        reason: 'a held press on a menu digit must still enter it',
+      );
+      expect(game.selected, blank, reason: 'selection must not have moved');
+    });
+
+    testWidgets('a real-speed press pencils from the pencil menu', (
+      tester,
+    ) async {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(controller: game));
+      await tester.pump();
+
+      final blank = game.values.indexOf(0);
+      final box = tester.renderObject<RenderBox>(find.byType(BoardView));
+      final n = game.variant.size;
+      final size = box.size.shortestSide / n;
+      final origin = tester.getTopLeft(find.byType(BoardView));
+      await tester.longPressAt(
+        origin +
+            Offset(
+              (blank % n) * size + size / 2,
+              (blank ~/ n) * size + size / 2,
+            ),
+      );
+      await tester.pumpAndSettle();
+
+      final target = find.descendant(
+        of: find.byType(CellMenu),
+        matching: find.text('3'),
+      );
+      final press = await tester.startGesture(tester.getCenter(target));
+      await tester.pump(const Duration(milliseconds: 250));
+      await press.up();
+      await tester.pumpAndSettle();
+
+      expect(game.notes[blank] & digitBit(3), isNot(0));
+      expect(game.values[blank], 0);
+    });
+
     testWidgets('does not open on a locked cell', (tester) async {
       final game = GameController(variant: Variant.four, random: Random(5));
       await tester.pumpWidget(FSudokuApp(controller: game));
