@@ -104,10 +104,15 @@ class BoardRender {
 /// Paints the board: box shading, highlights, grid lines and digits.
 class BoardPainter extends CustomPainter {
   /// Creates a painter for [render], reusing [cache] for glyph layout.
-  BoardPainter({required this.render, required this.cache});
+  ///
+  /// [onSelectCell] receives taps that arrive through assistive technology.
+  BoardPainter({required this.render, required this.cache, this.onSelectCell});
 
   final BoardRender render;
   final GlyphCache cache;
+
+  /// Called when a screen reader activates a cell.
+  final void Function(int cell)? onSelectCell;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -443,6 +448,96 @@ class BoardPainter extends CustomPainter {
     }
 
     if (rotate) canvas.restore();
+  }
+
+  // ------------------------------------------------------------- semantics
+
+  /// Describes every cell to assistive technology.
+  ///
+  /// A `CustomPaint` is one opaque rectangle to a screen reader, so a board
+  /// drawn this way is invisible to one unless its contents are published
+  /// separately. These nodes are built from the same snapshot the painting
+  /// uses, so the two cannot drift apart.
+  @override
+  SemanticsBuilderCallback get semanticsBuilder => (size) {
+    final r = render;
+    final board = size.shortestSide;
+    final edges = _snappedEdges(board, r.variant.size, r.devicePixelRatio);
+
+    return [
+      for (var i = 0; i < r.values.length; i++)
+        CustomPainterSemantics(
+          key: ValueKey(i),
+          rect: _cellRect(edges, r.geometry.rowOf[i], r.geometry.colOf[i]),
+          properties: SemanticsProperties(
+            label: _describeCell(i),
+            textDirection: TextDirection.ltr,
+            enabled: !r.paused && !_isLocked(i),
+            selected: i == r.selected,
+            button: !r.paused && !_isLocked(i),
+            onTap: r.paused || onSelectCell == null
+                ? null
+                : () => onSelectCell!(i),
+          ),
+        ),
+    ];
+  };
+
+  bool _isLocked(int cell) {
+    final r = render;
+    // A given, or a player answer that is right, takes no further input.
+    return r.givens[cell] != 0 ||
+        (r.values[cell] != 0 && !r.wrongCells.contains(cell));
+  }
+
+  /// One cell, in the words a listener needs rather than the ones on screen.
+  String _describeCell(int cell) {
+    final r = render;
+    final where =
+        'row ${r.geometry.rowOf[cell] + 1}, '
+        'column ${r.geometry.colOf[cell] + 1}';
+
+    // Pausing hides the board; it must hide it from everyone equally.
+    if (r.paused) return '$where, hidden while paused';
+
+    final value = r.values[cell];
+    if (value != 0) {
+      if (r.givens[cell] != 0) return '$where, $value, clue';
+      if (r.wrongCells.contains(cell)) return '$where, $value, incorrect';
+      return '$where, $value, correct';
+    }
+
+    final notes = digitsOf(r.notes[cell]);
+    if (notes.isNotEmpty) {
+      return '$where, empty, pencilled ${_list(notes)}';
+    }
+    if (r.showCandidates) {
+      final candidates = digitsOf(r.candidates[cell]);
+      if (candidates.isNotEmpty) {
+        return '$where, empty, candidates ${_list(candidates)}';
+      }
+      return '$where, empty, no candidates left';
+    }
+    return '$where, empty';
+  }
+
+  /// Joins digits the way they would be said aloud.
+  static String _list(List<int> digits) {
+    if (digits.length == 1) return '${digits.first}';
+    final head = digits.sublist(0, digits.length - 1).join(', ');
+    return '$head and ${digits.last}';
+  }
+
+  @override
+  bool shouldRebuildSemantics(BoardPainter oldDelegate) {
+    final a = oldDelegate.render;
+    final b = render;
+    return a.revision != b.revision ||
+        a.selected != b.selected ||
+        a.paused != b.paused ||
+        a.showCandidates != b.showCandidates ||
+        a.variant != b.variant ||
+        !setEquals(a.wrongCells, b.wrongCells);
   }
 
   @override

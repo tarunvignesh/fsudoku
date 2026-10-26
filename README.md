@@ -86,6 +86,25 @@ Typography ships as ASCII subsets of three families at two weights each —
 `tool/subset_fonts.py` regenerates them; all three families are SIL OFL 1.1,
 attributed in [`assets/fonts/ATTRIBUTION.md`](assets/fonts/ATTRIBUTION.md).
 
+## Accessibility
+
+The board is painted to a canvas, which is what makes it fast — and what makes
+it one opaque rectangle to a screen reader unless its contents are published
+separately. They are: `CustomPainter.semanticsBuilder` emits a node per cell,
+built from the same snapshot the painting uses, so the two cannot drift apart.
+
+A cell reads as *"row 4, column 7, empty, candidates 2, 5 and 9"*, or
+*"row 1, column 3, 5, clue"*, or *"…, 5, incorrect"*. Activating one selects it
+and opens the digit menu, which is built from ordinary widgets and so was
+already readable. A paused board reads as hidden rather than reading its digits
+out, and candidates are spoken only once the player has asked to see them — a
+listener gets the same assistance as everyone else, not more. Hints and a
+finished puzzle are announced.
+
+`test/semantics_test.dart` asserts all of it, because nothing on screen reveals
+whether it is right. Every one of its checks fails if the semantics layer is
+removed.
+
 Every skin's colours are held to WCAG 2.1 contrast minimums by
 `test/accessibility_test.dart`, which measures each text-on-background pair the
 board can actually produce, translucent highlights included. It found that
@@ -210,7 +229,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 102 tests, ~9s
+flutter test                   # 117 tests, ~9s
 flutter analyze
 ```
 
@@ -247,8 +266,7 @@ after the first visit.
 
 Playable and feature-complete on the web. **[Known gaps and technical
 debt](docs/TECH_DEBT.md)** is the honest list — the one worth reading first is
-that the canvas board exposes no semantics, so it is unusable with a screen
-reader, and that nothing is persisted across a reload.
+that nothing is persisted across a reload.
 
 iOS is the next target. The engine needs no changes to get there; the platform
 scaffolding is current. The application id is `io.github.conatarun.fsudoku`, a

@@ -253,73 +253,96 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
                   if (c.isWrong(i)) i,
               };
 
-              return Stack(
-                children: [
-                  // The menu is a SIBLING above this detector, never a child.
-                  // As a child, pressing one of its digits also fed the
-                  // board's onTapDown -- which fires on the press-timeout
-                  // deadline whether or not it wins the arena -- re-selecting
-                  // the cell underneath and closing the menu before the
-                  // button's onTap could run. Instantaneous synthetic taps
-                  // never hit that deadline, so only real presses broke.
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapDown: (d) => _selectAt(d.localPosition, board),
-                    onTap: () {
-                      final selected = widget.controller.selected;
-                      if (selected != null) {
-                        _openMenuOn(selected, CellMenuMode.answer);
-                      }
-                    },
-                    // Long press on touch, right click with a mouse: the
-                    // gesture the original used to pencil without committing.
-                    onLongPressStart: (d) =>
-                        _openMenu(d.localPosition, board, CellMenuMode.pencil),
-                    onSecondaryTapDown: (d) =>
-                        _openMenu(d.localPosition, board, CellMenuMode.pencil),
-                    child: CustomPaint(
-                      size: Size.square(board),
-                      isComplex: true,
-                      willChange:
-                          _selection.isAnimating ||
-                          _hintFade.isAnimating ||
-                          _celebrate.isAnimating,
-                      painter: BoardPainter(
-                        cache: _cache,
-                        render: BoardRender(
-                          variant: c.variant,
-                          geometry: analysis.geometry,
-                          revision: c.revision,
-                          values: c.values,
-                          notes: c.notes,
-                          givens: c.puzzle.givens,
-                          candidates: analysis.candidates,
-                          conflictCells: conflicts,
-                          wrongCells: wrong,
-                          celebrated: c.celebrated,
-                          celebrationOrigin: c.celebrationOrigin,
-                          paused: c.paused,
-                          showCandidates: c.showCandidates,
-                          palette: palette,
-                          style: style,
-                          devicePixelRatio: dpr,
-                          selected: c.selected,
-                          hovered: _hovered,
-                          hint: c.hint,
-                          selectionProgress: Curves.easeOutCubic.transform(
-                            _selection.value,
+              return Semantics(
+                container: true,
+                // Explicit, so each cell stays its own node instead of being
+                // merged into one unreadable blob.
+                explicitChildNodes: true,
+                label:
+                    'Sudoku board, ${c.variant.size} by ${c.variant.size}. '
+                    '${c.remaining} ${c.remaining == 1 ? "cell" : "cells"} '
+                    'remaining.',
+                child: Stack(
+                  children: [
+                    // The menu is a SIBLING above this detector, never a child.
+                    // As a child, pressing one of its digits also fed the
+                    // board's onTapDown -- which fires on the press-timeout
+                    // deadline whether or not it wins the arena -- re-selecting
+                    // the cell underneath and closing the menu before the
+                    // button's onTap could run. Instantaneous synthetic taps
+                    // never hit that deadline, so only real presses broke.
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (d) => _selectAt(d.localPosition, board),
+                      onTap: () {
+                        final selected = widget.controller.selected;
+                        if (selected != null) {
+                          _openMenuOn(selected, CellMenuMode.answer);
+                        }
+                      },
+                      // Long press on touch, right click with a mouse: the
+                      // gesture the original used to pencil without committing.
+                      onLongPressStart: (d) => _openMenu(
+                        d.localPosition,
+                        board,
+                        CellMenuMode.pencil,
+                      ),
+                      onSecondaryTapDown: (d) => _openMenu(
+                        d.localPosition,
+                        board,
+                        CellMenuMode.pencil,
+                      ),
+                      child: CustomPaint(
+                        size: Size.square(board),
+                        isComplex: true,
+                        willChange:
+                            _selection.isAnimating ||
+                            _hintFade.isAnimating ||
+                            _celebrate.isAnimating,
+                        painter: BoardPainter(
+                          cache: _cache,
+                          // Activating a cell with a screen reader does what a
+                          // tap does: selects it and offers the digits, which
+                          // are real widgets and so already readable.
+                          onSelectCell: (cell) {
+                            widget.controller.select(cell);
+                            _openMenuOn(cell, CellMenuMode.answer);
+                          },
+                          render: BoardRender(
+                            variant: c.variant,
+                            geometry: analysis.geometry,
+                            revision: c.revision,
+                            values: c.values,
+                            notes: c.notes,
+                            givens: c.puzzle.givens,
+                            candidates: analysis.candidates,
+                            conflictCells: conflicts,
+                            wrongCells: wrong,
+                            celebrated: c.celebrated,
+                            celebrationOrigin: c.celebrationOrigin,
+                            paused: c.paused,
+                            showCandidates: c.showCandidates,
+                            palette: palette,
+                            style: style,
+                            devicePixelRatio: dpr,
+                            selected: c.selected,
+                            hovered: _hovered,
+                            hint: c.hint,
+                            selectionProgress: Curves.easeOutCubic.transform(
+                              _selection.value,
+                            ),
+                            hintProgress: Curves.easeOutCubic.transform(
+                              _hintFade.value,
+                            ),
+                            celebrationProgress: _celebrate.value,
                           ),
-                          hintProgress: Curves.easeOutCubic.transform(
-                            _hintFade.value,
-                          ),
-                          celebrationProgress: _celebrate.value,
                         ),
                       ),
                     ),
-                  ),
-                  if (_menuCell != null && !c.paused)
-                    _positionedMenu(context, c, board),
-                ],
+                    if (_menuCell != null && !c.paused)
+                      _positionedMenu(context, c, board),
+                  ],
+                ),
               );
             },
           ),

@@ -4,6 +4,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'dart:async';
+
+import 'package:flutter/semantics.dart';
+
 import '../engine/puzzle.dart';
 import '../engine/variant.dart';
 import '../state/game_controller.dart';
@@ -202,7 +206,12 @@ class _GamePageState extends State<GamePage> {
 
   void _requestHint() {
     final hint = _game.requestHint();
-    if (hint != null) return;
+    if (hint != null) {
+      // A sighted player sees the explanation appear and the cells light up.
+      // Spoken, it has to be announced or it simply does not arrive.
+      _announce('${hint.technique.label}. ${hint.explanation}');
+      return;
+    }
 
     // Nothing follows by deduction. Say which of the two reasons it is.
     final analysis = _game.analysis;
@@ -217,6 +226,21 @@ class _GamePageState extends State<GamePage> {
         : 'No single move follows from logic alone here. This board needs '
               'a guess: pick a cell with two candidates and try one.';
     _showSnack(message);
+  }
+
+  /// Speaks [message] to assistive technology.
+  void _announce(
+    String message, {
+    Assertiveness assertiveness = Assertiveness.polite,
+  }) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        TextDirection.ltr,
+        assertiveness: assertiveness,
+      ),
+    );
   }
 
   void _showSnack(String message) {
@@ -238,6 +262,11 @@ class _GamePageState extends State<GamePage> {
     final time = _game.elapsed.value;
     final hints = _game.hintsUsed;
     if (!mounted) return;
+
+    _announce(
+      'Solved in ${_format(time)}.',
+      assertiveness: Assertiveness.assertive,
+    );
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
