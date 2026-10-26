@@ -226,7 +226,9 @@ class _GamePageState extends State<GamePage> {
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          width: 460,
+          // A fixed width wider than the screen is wrong on a phone; null
+          // lets it span the width with the usual margin instead.
+          width: MediaQuery.sizeOf(context).width < 520 ? null : 460.0,
           duration: const Duration(seconds: 6),
         ),
       );

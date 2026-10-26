@@ -162,7 +162,12 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
     final cellSize = board / variant.size;
 
     final menuW = CellMenu.widthFor(variant);
-    final menuH = CellMenu.heightFor(variant);
+    // Overestimated on purpose. heightFor is an estimate -- the menu sizes to
+    // its content, and at large text scales the header grows past the
+    // allowance. Overestimating only places the menu higher, which is safe;
+    // underestimating would push its bottom row outside the board's Stack,
+    // where it would draw but refuse taps.
+    final menuH = CellMenu.heightFor(variant) + 28;
 
     final cellLeft = geometry.colOf[cell] * cellSize;
     final cellTop = geometry.rowOf[cell] * cellSize;

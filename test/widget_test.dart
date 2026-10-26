@@ -289,6 +289,65 @@ void main() {
     expect(find.byIcon(Icons.fullscreen_exit), findsNothing);
   });
 
+  testWidgets('a held press on a radial action still works', (tester) async {
+    // Same timing hazard the cell menu hit: the actions sit above a
+    // full-screen scrim that closes on tap, so a slow press must not be
+    // swallowed on its way down.
+    final view = tester.platformDispatcher.views.first;
+    view.physicalSize = const Size(390, 844);
+    view.devicePixelRatio = 1;
+
+    final game = GameController(variant: Variant.four, random: Random(5));
+    await tester.pumpWidget(FSudokuApp(controller: game));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.apps));
+    await tester.pumpAndSettle();
+
+    final press = await tester.startGesture(
+      tester.getCenter(find.text('Notes')),
+    );
+    await tester.pump(const Duration(milliseconds: 250));
+    await press.up();
+    await tester.pumpAndSettle();
+
+    expect(game.notesMode, isTrue);
+    expect(find.text('Notes'), findsOneWidget, reason: 'toggle keeps it open');
+  });
+
+  testWidgets('shrinking the board closes a menu on a now-missing cell', (
+    tester,
+  ) async {
+    // The menu holds a cell index. Switching 9x9 -> 4x4 makes a high index
+    // invalid, and the menu reads notes/values/candidates by that index.
+    final view = tester.platformDispatcher.views.first;
+    view.physicalSize = const Size(1600, 1000);
+    view.devicePixelRatio = 1;
+
+    final game = GameController(variant: Variant.nine, random: Random(9));
+    await tester.pumpWidget(FSudokuApp(controller: game));
+    await tester.pump();
+
+    final blank = game.values.lastIndexWhere((v) => v == 0);
+    expect(blank, greaterThan(16), reason: 'need an index 4x4 lacks');
+
+    final box = tester.renderObject<RenderBox>(find.byType(BoardView));
+    final cell = box.size.shortestSide / 9;
+    final origin = tester.getTopLeft(find.byType(BoardView));
+    await tester.tapAt(
+      origin +
+          Offset((blank % 9) * cell + cell / 2, (blank ~/ 9) * cell + cell / 2),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CellMenu), findsOneWidget);
+
+    await tester.tap(find.text('4x4'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(CellMenu), findsNothing);
+  });
+
   testWidgets('roomy viewports keep the side panel', (tester) async {
     final view = tester.platformDispatcher.views.first;
     view.physicalSize = const Size(1440, 900);
