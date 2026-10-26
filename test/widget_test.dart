@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:fsudoku/engine/variant.dart';
 import 'package:fsudoku/state/game_controller.dart';
+import 'package:fsudoku/state/settings_controller.dart';
 import 'package:fsudoku/ui/board/board_view.dart';
 import 'package:fsudoku/ui/board/cell_menu.dart';
 import 'package:fsudoku/ui/number_pad.dart';
@@ -236,6 +237,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(game.notesMode, isTrue);
     expect(find.text('Notes'), findsOneWidget);
+  });
+
+  testWidgets('grid-only hides the panel on a large viewport', (tester) async {
+    final view = tester.platformDispatcher.views.first;
+    view.physicalSize = const Size(1600, 1000);
+    view.devicePixelRatio = 1;
+
+    final settings = SettingsController();
+    await tester.pumpWidget(FSudokuApp(settings: settings));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NumberPad), findsOneWidget);
+    final panelBoard = tester
+        .renderObject<RenderBox>(find.byType(BoardView))
+        .size
+        .shortestSide;
+
+    await press(tester, LogicalKeyboardKey.keyF);
+    await tester.pumpAndSettle();
+
+    expect(settings.gridOnly, isTrue);
+    expect(find.byType(NumberPad), findsNothing);
+    expect(find.text('Sudoku Trainer'), findsNothing);
+    // A way back exists, since the panel is available at this size.
+    expect(find.byIcon(Icons.fullscreen_exit), findsOneWidget);
+
+    // The board actually gains from the space it reclaimed.
+    final gridBoard = tester
+        .renderObject<RenderBox>(find.byType(BoardView))
+        .size
+        .shortestSide;
+    expect(gridBoard, greaterThan(panelBoard));
+
+    await tester.tap(find.byIcon(Icons.fullscreen_exit));
+    await tester.pumpAndSettle();
+    expect(settings.gridOnly, isFalse);
+    expect(find.byType(NumberPad), findsOneWidget);
+  });
+
+  testWidgets('a phone offers no way back to a panel it cannot show', (
+    tester,
+  ) async {
+    final view = tester.platformDispatcher.views.first;
+    view.physicalSize = const Size(390, 844);
+    view.devicePixelRatio = 1;
+
+    await tester.pumpWidget(const FSudokuApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.fullscreen_exit), findsNothing);
   });
 
   testWidgets('roomy viewports keep the side panel', (tester) async {

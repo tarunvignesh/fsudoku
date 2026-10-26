@@ -37,6 +37,22 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Whether to show the board alone, hiding the side panel.
+  ///
+  /// Small viewports get this regardless; on a large one it is a choice, so
+  /// that someone who wants only the grid can have it on any screen.
+  bool get gridOnly => _gridOnly;
+  bool _gridOnly = false;
+
+  set gridOnly(bool value) {
+    if (_gridOnly == value) return;
+    _gridOnly = value;
+    notifyListeners();
+  }
+
+  /// Flips between the board alone and the full layout.
+  void toggleGridOnly() => gridOnly = !_gridOnly;
+
   /// Steps system -> light -> dark -> system.
   void cycleThemeMode() {
     themeMode = switch (_themeMode) {

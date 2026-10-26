@@ -104,7 +104,9 @@ the board.
 | ![](docs/screenshots/radial-menu.png) | ![](docs/screenshots/landscape.png) |
 
 Larger viewports get the full layout instead — side panel, digit pad, hint
-explanation and keyboard reference — because there is room for it.
+explanation and keyboard reference — because there is room for it. **`F`, or
+the ⛶ button in the header, drops any window to the grid alone**, so the clean
+view is not something only a phone can have.
 
 Your rotated pencil marks beside the app's upright candidates, and the digit
 menu open on a cell:
@@ -132,6 +134,7 @@ Fully playable from the keyboard, which is how most people will use it on the we
 | `Space` / `Enter` | Place the explained move |
 | `Shift`+`1`–`9` | Pencil a digit without changing mode |
 | `P` | Pause (hides the board) |
+| `F` | Grid only — hide the panel at any window size |
 | `Ctrl`+`Z` / `Ctrl`+`Shift`+`Z` | Undo / redo |
 | `Esc` | Dismiss the hint, then clear the selection |
 

@@ -111,14 +111,18 @@ class HintPanel extends StatelessWidget {
         const SizedBox(height: 4),
         Text(hint.explanation, style: theme.textTheme.bodyMedium),
         const SizedBox(height: 12),
-        Row(
+        // Wraps rather than overflows: the panel is a fixed width and the
+        // button's label grows with the digit and the active font.
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 10,
+          runSpacing: 6,
           children: [
             FilledButton.icon(
               onPressed: controller.applyHint,
               icon: const Icon(Icons.check, size: 18),
               label: Text('Place ${hint.digit}'),
             ),
-            const SizedBox(width: 10),
             Text(
               'or press space',
               style: theme.textTheme.bodySmall?.copyWith(

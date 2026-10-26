@@ -159,6 +159,8 @@ class _GamePageState extends State<GamePage> {
         _game.toggleCandidates();
       case LogicalKeyboardKey.keyP:
         _game.togglePause();
+      case LogicalKeyboardKey.keyF:
+        _settings.toggleGridOnly();
       case LogicalKeyboardKey.keyH:
         _requestHint();
       case LogicalKeyboardKey.enter:
@@ -280,14 +282,20 @@ class _GamePageState extends State<GamePage> {
             builder: (context, constraints) {
               // The side panel needs room in both directions. A phone in
               // landscape is wide but short, so width alone is not the test.
-              final roomy =
+              final fits =
                   constraints.maxWidth >= 900 && constraints.maxHeight >= 620;
 
-              if (!roomy) return _immersiveLayout();
+              if (!fits || _settings.gridOnly) {
+                // Offer a way back only when the panel is actually available;
+                // on a phone there is nothing to go back to.
+                return _immersiveLayout(canShowPanel: fits);
+              }
 
               return Center(
+                // Generous, not capped at a width that leaves a 1920 screen
+                // mostly empty. The board is bounded by height anyway.
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1180),
+                  constraints: const BoxConstraints(maxWidth: 1800),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
                     child: _fullLayout(),
@@ -306,7 +314,6 @@ class _GamePageState extends State<GamePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: 5,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -314,6 +321,7 @@ class _GamePageState extends State<GamePage> {
                 game: _game,
                 onNewGame: _game.newGame,
                 onOpenSkins: _showSkinSheet,
+                onGridOnly: _settings.toggleGridOnly,
               ),
               const SizedBox(height: 16),
               Flexible(child: _board()),
@@ -321,8 +329,10 @@ class _GamePageState extends State<GamePage> {
           ),
         ),
         const SizedBox(width: 28),
-        Expanded(
-          flex: 3,
+        // Fixed, so extra width goes to the board rather than stretching
+        // controls that gain nothing from it.
+        SizedBox(
+          width: 360,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -347,13 +357,34 @@ class _GamePageState extends State<GamePage> {
   /// Everything that would otherwise sit around the board lives in the radial
   /// menu, so the puzzle gets the whole screen in either orientation. Digits
   /// are entered through the cell menu, which needs no chrome of its own.
-  Widget _immersiveLayout() {
+  Widget _immersiveLayout({required bool canShowPanel}) {
     return Stack(
       children: [
         Padding(
           padding: const EdgeInsets.all(8),
           child: Center(child: _board()),
         ),
+
+        // Only when the panel exists to go back to. Deliberately small and
+        // out of the way: the point of this view is the absence of chrome.
+        if (canShowPanel)
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Tooltip(
+              message: 'Show panel (F)',
+              child: IconButton(
+                onPressed: _settings.toggleGridOnly,
+                icon: const Icon(Icons.fullscreen_exit, size: 20),
+                style: IconButton.styleFrom(
+                  foregroundColor: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          ),
         // Fills the screen so its fanned-out actions are inside its own hit
         // test bounds; taps elsewhere fall through to the board beneath.
         Positioned.fill(
@@ -560,11 +591,13 @@ class _Header extends StatelessWidget {
     required this.game,
     required this.onNewGame,
     required this.onOpenSkins,
+    required this.onGridOnly,
   });
 
   final GameController game;
   final VoidCallback onNewGame;
   final VoidCallback onOpenSkins;
+  final VoidCallback onGridOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -614,15 +647,22 @@ class _Header extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                IconButton(
-                  tooltip: 'Skins and theme',
-                  onPressed: onOpenSkins,
-                  icon: const Icon(Icons.palette_outlined),
+                // Compact: three buttons at the default 48px footprint push
+                // the row past its width once the clock and counters are in.
+                _HeaderButton(
+                  tooltip: 'Grid only (F)',
+                  icon: Icons.fullscreen,
+                  onPressed: onGridOnly,
                 ),
-                IconButton(
+                _HeaderButton(
+                  tooltip: 'Skins and theme',
+                  icon: Icons.palette_outlined,
+                  onPressed: onOpenSkins,
+                ),
+                _HeaderButton(
                   tooltip: 'New puzzle',
+                  icon: Icons.refresh,
                   onPressed: onNewGame,
-                  icon: const Icon(Icons.refresh),
                 ),
               ],
             ),
@@ -902,6 +942,31 @@ class _PausedCover extends StatelessWidget {
   }
 }
 
+/// A small icon button for the header's right-hand cluster.
+class _HeaderButton extends StatelessWidget {
+  const _HeaderButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 19),
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.all(6),
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+    );
+  }
+}
+
 /// Which way a score chip reads.
 enum _Tone { good, bad }
 
@@ -1098,6 +1163,7 @@ class _KeyboardLegend extends StatelessWidget {
     ('H', 'hint'),
     ('space', 'place the hint'),
     ('P', 'pause'),
+    ('F', 'grid only'),
     ('ctrl+Z', 'undo'),
   ];
 
