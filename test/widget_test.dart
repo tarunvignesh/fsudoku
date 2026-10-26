@@ -4,6 +4,8 @@ import 'package:fsudoku/engine/variant.dart';
 import 'package:fsudoku/state/game_controller.dart';
 import 'package:fsudoku/ui/board/board_view.dart';
 import 'package:fsudoku/ui/board/cell_menu.dart';
+import 'package:fsudoku/ui/number_pad.dart';
+import 'package:fsudoku/ui/radial_menu.dart';
 import 'package:fsudoku/ui/app.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -171,16 +173,82 @@ void main() {
     );
   });
 
-  testWidgets('renders narrow layouts without overflowing', (tester) async {
+  testWidgets('phone layouts give the board the whole screen', (tester) async {
+    final view = tester.platformDispatcher.views.first;
+
+    // Portrait and landscape. Landscape is the one that used to break: the
+    // board sized itself to the width and ran off the bottom of the screen.
+    for (final size in [const Size(390, 844), const Size(844, 390)]) {
+      view.physicalSize = size;
+      view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(const FSudokuApp());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull, reason: '$size');
+
+      // No chrome: no title, no digit pad, no hint panel.
+      expect(find.text('Sudoku Trainer'), findsNothing, reason: '$size');
+      expect(find.byType(NumberPad), findsNothing, reason: '$size');
+      // Controls live behind the one floating button.
+      expect(find.byType(RadialMenu), findsOneWidget, reason: '$size');
+
+      // The board must fit in BOTH directions, not just across.
+      final box = tester.renderObject<RenderBox>(find.byType(BoardView));
+      expect(box.size.width, lessThanOrEqualTo(size.width), reason: '$size');
+      expect(box.size.height, lessThanOrEqualTo(size.height), reason: '$size');
+      // And it should actually use the space it has.
+      expect(
+        box.size.shortestSide,
+        greaterThan(size.shortestSide * 0.85),
+        reason: '$size board too small',
+      );
+    }
+  });
+
+  testWidgets('the radial menu reaches the controls on a phone', (
+    tester,
+  ) async {
     final view = tester.platformDispatcher.views.first;
     view.physicalSize = const Size(390, 844);
+    view.devicePixelRatio = 1;
+
+    final game = GameController(variant: Variant.four, random: Random(4));
+    await tester.pumpWidget(FSudokuApp(controller: game));
+    await tester.pumpAndSettle();
+
+    // At rest the board is alone: the actions are not on screen.
+    expect(find.text('Hint'), findsNothing);
+    expect(find.text('Notes'), findsNothing);
+
+    // The menu fills the screen so its fanned-out actions are hit-testable,
+    // so tap the trigger itself rather than the widget's centre.
+    await tester.tap(find.byIcon(Icons.apps));
+    await tester.pumpAndSettle();
+
+    // Five on the arc; anything else lives behind More.
+    for (final label in ['Hint', 'Notes', 'Candidates', 'Undo', 'More']) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+
+    // A toggle acts and keeps the menu up.
+    await tester.tap(find.text('Notes'));
+    await tester.pumpAndSettle();
+    expect(game.notesMode, isTrue);
+    expect(find.text('Notes'), findsOneWidget);
+  });
+
+  testWidgets('roomy viewports keep the side panel', (tester) async {
+    final view = tester.platformDispatcher.views.first;
+    view.physicalSize = const Size(1440, 900);
     view.devicePixelRatio = 1;
 
     await tester.pumpWidget(const FSudokuApp());
     await tester.pumpAndSettle();
 
-    expect(tester.takeException(), isNull);
     expect(find.text('Sudoku Trainer'), findsOneWidget);
+    expect(find.byType(NumberPad), findsOneWidget);
+    expect(find.byType(RadialMenu), findsNothing);
   });
 
   testWidgets('renders in light and dark without throwing', (tester) async {

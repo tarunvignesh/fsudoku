@@ -91,6 +91,7 @@ class GameController extends ChangeNotifier {
   /// Drives the completion flourish; cleared when the next edit lands.
   Set<int> _celebrated = const {};
   int _celebrationTick = 0;
+  int _celebrationOrigin = 0;
 
   final Stopwatch _clock = Stopwatch();
   Timer? _ticker;
@@ -169,6 +170,12 @@ class GameController extends ChangeNotifier {
 
   /// Increments each time a unit is completed, so the view can retrigger.
   int get celebrationTick => _celebrationTick;
+
+  /// The cell whose answer completed the unit.
+  ///
+  /// The flourish travels outward from here, so the animation reads as a
+  /// consequence of the move the player just made.
+  int get celebrationOrigin => _celebrationOrigin;
 
   /// Cells still empty.
   int get remaining => _values.where((v) => v == 0).length;
@@ -407,6 +414,7 @@ class GameController extends ChangeNotifier {
         : const <int>{};
     if (completed.isNotEmpty) {
       _celebrated = completed;
+      _celebrationOrigin = cell;
       _celebrationTick++;
     } else if (_celebrated.isNotEmpty) {
       _celebrated = const {};

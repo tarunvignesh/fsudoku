@@ -24,3 +24,25 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Subset to printable ASCII at two weights each: the full families are about
+  # 4.4 MB, these are ~104 KB in total. See tool/subset_fonts.py.
+  fonts:
+    - family: SourceSerif4
+      fonts:
+        - asset: assets/fonts/SourceSerif4-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/SourceSerif4-SemiBold.ttf
+          weight: 600
+    - family: JetBrainsMono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono-SemiBold.ttf
+          weight: 600
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600

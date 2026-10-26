@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/rendering.dart';
 
+import '../theme.dart';
+
 /// What a digit on the board represents, which decides how it is drawn.
 enum GlyphRole {
   /// A clue that came with the puzzle.
@@ -35,17 +37,24 @@ class GlyphCache {
   final Map<(GlyphRole, int), TextPainter> _painters = {};
   double _cellSize = -1;
   Map<GlyphRole, Color> _colors = const {};
+  BoardStyle? _style;
 
-  /// Discards cached glyphs if [cellSize] or [colors] changed.
+  /// Discards cached glyphs if [cellSize], [colors] or [style] changed.
   ///
-  /// Call once per paint before requesting any glyph.
+  /// Call once per paint before requesting any glyph. Switching skins changes
+  /// the typeface and the proportions, so the cache has to key on the style
+  /// as well as the size.
   void configure({
     required double cellSize,
     required Map<GlyphRole, Color> colors,
+    required BoardStyle style,
   }) {
-    if (_cellSize == cellSize && _sameColors(colors)) return;
+    if (_cellSize == cellSize && _style == style && _sameColors(colors)) {
+      return;
+    }
     _cellSize = cellSize;
     _colors = Map.unmodifiable(colors);
+    _style = style;
     for (final painter in _painters.values) {
       painter.dispose();
     }
@@ -67,6 +76,7 @@ class GlyphCache {
         text: TextSpan(
           text: '$digit',
           style: TextStyle(
+            fontFamily: _style?.fontFamily,
             fontSize: _fontSize(role),
             fontWeight: _weight(role),
             color: _colors[role],

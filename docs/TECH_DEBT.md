@@ -69,9 +69,9 @@ difficulty tiers ever dig deeper, it will need chunking across frames.
 
 ## 8. Layout tests depend on test-font metrics
 
-`renders narrow layouts without overflowing` passes because the test font makes
-every glyph a full em square, which is *harsher* than reality — useful, since it
-caught a genuine title overflow. But it means the test asserts something
+`phone layouts give the board the whole screen` passes partly because the test
+font makes every glyph a full em square, which is *harsher* than reality —
+useful, since it caught a genuine title overflow. But it means the test asserts something
 slightly different from what a browser does, and a real overflow in a
 proportional font could slip past it. Golden tests over the painter would cover
 the visual side properly; there are none.
@@ -83,7 +83,12 @@ guarded so this happens once per cell crossed rather than per pointer move, and
 the repaint is one canvas layer — but a `ValueNotifier<int?>` feeding the
 painter directly would avoid the widget rebuild entirely.
 
-## 10. Smaller things
+## 10. Skin and brightness choices are not remembered either
+
+Same root cause as item 2: nothing is persisted. Picking Terminal and reloading
+puts you back on Slate. One `storage.dart` port would fix both.
+
+## 11. Smaller things
 
 - The original's `'?'` "unsure" marker was not restored. It wrote a literal
   `'?'` into the board, which the model has no state for; a real third state
@@ -91,5 +96,10 @@ painter directly would avoid the widget rebuild entirely.
 - No error reporting, so a crash in someone's browser is invisible.
 - The service worker is Flutter's default: it caches, but there is no update
   prompt, so a returning player may sit on a stale build for a session.
-- `docs/screenshots/` are committed PNGs totalling ~700 KB. Fine now, easy to
-  forget when adding more.
+- `docs/screenshots/` are committed PNGs totalling ~650 KB, already halved and
+  palette-quantised. Easy to forget when adding more.
+- The radial menu's arc holds about five actions before items collide; the
+  limit is the label width, and it is only documented, not enforced.
+- Contrast is the one thing here that defends itself: the audit iterates
+  `Skin.all`, so a new skin is measured the moment it is listed. Nothing
+  equivalent guards the *structural* points above.

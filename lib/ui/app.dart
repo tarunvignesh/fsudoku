@@ -7,30 +7,58 @@ import 'package:flutter/services.dart';
 import '../engine/puzzle.dart';
 import '../engine/variant.dart';
 import '../state/game_controller.dart';
+import '../state/settings_controller.dart';
 import 'board/board_view.dart';
 import 'hint_panel.dart';
 import 'number_pad.dart';
+import 'radial_menu.dart';
+import 'skins.dart';
 import 'theme.dart';
 
 /// Root widget.
-class FSudokuApp extends StatelessWidget {
+class FSudokuApp extends StatefulWidget {
   /// Creates the app.
   ///
   /// Pass [controller] to drive a specific game, which lets tests work
-  /// against a seeded puzzle instead of a random one.
-  const FSudokuApp({super.key, this.controller});
+  /// against a seeded puzzle instead of a random one, and [settings] to start
+  /// on a particular skin.
+  const FSudokuApp({super.key, this.controller, this.settings});
 
   /// An externally supplied game, or null to start a fresh one.
   final GameController? controller;
 
+  /// Externally supplied presentation settings, or null for the defaults.
+  final SettingsController? settings;
+
+  @override
+  State<FSudokuApp> createState() => _FSudokuAppState();
+}
+
+class _FSudokuAppState extends State<FSudokuApp> {
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
+
+  @override
+  void dispose() {
+    _settings.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Sudoku Trainer',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(Brightness.light),
-      darkTheme: buildAppTheme(Brightness.dark),
-      home: GamePage(controller: controller),
+    return AnimatedBuilder(
+      animation: _settings,
+      builder: (context, _) => MaterialApp(
+        title: 'Sudoku Trainer',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(_settings.skin, Brightness.light),
+        darkTheme: buildAppTheme(_settings.skin, Brightness.dark),
+        themeMode: _settings.themeMode,
+        // Long enough to see the skin change, short enough not to feel slow.
+        themeAnimationDuration: const Duration(milliseconds: 420),
+        themeAnimationCurve: Curves.easeOutCubic,
+        home: GamePage(controller: widget.controller, settings: _settings),
+      ),
     );
   }
 }
@@ -38,10 +66,13 @@ class FSudokuApp extends StatelessWidget {
 /// The single screen: board, controls and hint explanation.
 class GamePage extends StatefulWidget {
   /// Creates the game page.
-  const GamePage({super.key, this.controller});
+  const GamePage({super.key, this.controller, this.settings});
 
   /// An externally supplied game, or null to start a fresh one.
   final GameController? controller;
+
+  /// Presentation settings, or null to use defaults owned by this page.
+  final SettingsController? settings;
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -50,6 +81,8 @@ class GamePage extends StatefulWidget {
 class _GamePageState extends State<GamePage> {
   late final GameController _game = (widget.controller ?? GameController())
     ..onSolved = _announceWin;
+  late final SettingsController _settings =
+      widget.settings ?? SettingsController();
   final FocusNode _keyboard = FocusNode(debugLabel: 'board-keyboard');
 
   @override
@@ -245,13 +278,19 @@ class _GamePageState extends State<GamePage> {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 880;
+              // The side panel needs room in both directions. A phone in
+              // landscape is wide but short, so width alone is not the test.
+              final roomy =
+                  constraints.maxWidth >= 900 && constraints.maxHeight >= 620;
+
+              if (!roomy) return _immersiveLayout();
+
               return Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1180),
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: wide ? _wideLayout() : _narrowLayout(),
+                    child: _fullLayout(),
                   ),
                 ),
               );
@@ -262,7 +301,7 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  Widget _wideLayout() {
+  Widget _fullLayout() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -271,7 +310,11 @@ class _GamePageState extends State<GamePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _Header(game: _game, onNewGame: _game.newGame),
+              _Header(
+                game: _game,
+                onNewGame: _game.newGame,
+                onOpenSkins: _showSkinSheet,
+              ),
               const SizedBox(height: 16),
               Flexible(child: _board()),
             ],
@@ -299,21 +342,196 @@ class _GamePageState extends State<GamePage> {
     );
   }
 
-  Widget _narrowLayout() {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Header(game: _game, onNewGame: _game.newGame),
-          const SizedBox(height: 14),
-          _board(),
-          const SizedBox(height: 14),
-          _Toolbar(game: _game, onHint: _requestHint),
-          const SizedBox(height: 14),
-          NumberPad(controller: _game),
-          const SizedBox(height: 14),
-          HintPanel(controller: _game),
-        ],
+  /// The phone layout: the board and nothing else.
+  ///
+  /// Everything that would otherwise sit around the board lives in the radial
+  /// menu, so the puzzle gets the whole screen in either orientation. Digits
+  /// are entered through the cell menu, which needs no chrome of its own.
+  Widget _immersiveLayout() {
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Center(child: _board()),
+        ),
+        // Fills the screen so its fanned-out actions are inside its own hit
+        // test bounds; taps elsewhere fall through to the board beneath.
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _game,
+            builder: (context, _) => RadialMenu(
+              status: _ImmersiveStatus(game: _game),
+              actions: [
+                RadialAction(
+                  icon: Icons.lightbulb_outline,
+                  label: 'Hint',
+                  onPressed: _requestHint,
+                ),
+                RadialAction(
+                  icon: Icons.edit_outlined,
+                  label: 'Notes',
+                  keepsMenuOpen: true,
+                  selected: _game.notesMode,
+                  onPressed: _game.toggleNotesMode,
+                ),
+                RadialAction(
+                  icon: Icons.grid_on,
+                  label: 'Candidates',
+                  keepsMenuOpen: true,
+                  selected: _game.showCandidates,
+                  onPressed: _game.toggleCandidates,
+                ),
+                RadialAction(
+                  icon: Icons.undo,
+                  label: 'Undo',
+                  onPressed: _game.canUndo ? _game.undo : null,
+                ),
+                RadialAction(
+                  icon: Icons.more_horiz,
+                  label: 'More',
+                  onPressed: _showGameSheet,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Skin and brightness picker.
+  Future<void> _showSkinSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => AnimatedBuilder(
+        animation: _settings,
+        builder: (context, _) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Skin',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    SegmentedButton<ThemeMode>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.system,
+                          icon: Icon(Icons.brightness_auto, size: 18),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          icon: Icon(Icons.light_mode, size: 18),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          icon: Icon(Icons.dark_mode, size: 18),
+                        ),
+                      ],
+                      selected: {_settings.themeMode},
+                      onSelectionChanged: (s) => _settings.themeMode = s.first,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final skin in Skin.all)
+                  _SkinTile(
+                    skin: skin,
+                    selected: skin.id == _settings.skin.id,
+                    onTap: () => _settings.skin = skin,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Board size, difficulty and a new puzzle, for the immersive layout.
+  Future<void> _showGameSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => AnimatedBuilder(
+        animation: _game,
+        builder: (context, _) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<Variant>(
+                  showSelectedIcon: false,
+                  segments: [
+                    for (final v in Variant.values)
+                      ButtonSegment(value: v, label: Text(v.label)),
+                  ],
+                  selected: {_game.variant},
+                  onSelectionChanged: (s) => _game.newGame(variant: s.first),
+                ),
+                const SizedBox(height: 10),
+                SegmentedButton<Difficulty>(
+                  showSelectedIcon: false,
+                  segments: [
+                    for (final d in Difficulty.values)
+                      ButtonSegment(value: d, label: Text(d.label)),
+                  ],
+                  selected: {_game.difficulty},
+                  onSelectionChanged: (s) => _game.newGame(difficulty: s.first),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _game.newGame();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('New puzzle'),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _game.togglePause();
+                        },
+                        icon: Icon(
+                          _game.paused ? Icons.play_arrow : Icons.pause,
+                        ),
+                        label: Text(_game.paused ? 'Resume' : 'Pause'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showSkinSheet();
+                        },
+                        icon: const Icon(Icons.palette_outlined),
+                        label: const Text('Skin'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -338,10 +556,15 @@ class _GamePageState extends State<GamePage> {
 
 /// Variant and difficulty pickers, the clock, and a new-game button.
 class _Header extends StatelessWidget {
-  const _Header({required this.game, required this.onNewGame});
+  const _Header({
+    required this.game,
+    required this.onNewGame,
+    required this.onOpenSkins,
+  });
 
   final GameController game;
   final VoidCallback onNewGame;
+  final VoidCallback onOpenSkins;
 
   @override
   Widget build(BuildContext context) {
@@ -390,7 +613,12 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Skins and theme',
+                  onPressed: onOpenSkins,
+                  icon: const Icon(Icons.palette_outlined),
+                ),
                 IconButton(
                   tooltip: 'New puzzle',
                   onPressed: onNewGame,
@@ -426,6 +654,205 @@ class _Header extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// One row in the skin picker, with a miniature of the board it produces.
+class _SkinTile extends StatelessWidget {
+  const _SkinTile({
+    required this.skin,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Skin skin;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final palette = dark ? skin.dark : skin.light;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? theme.colorScheme.secondaryContainer
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                _SkinSwatch(palette: palette, style: skin.style),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        skin.label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontFamily: skin.uiFontFamily,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        skin.description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (selected)
+                  Icon(Icons.check_circle, color: theme.colorScheme.primary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A four-cell miniature showing a skin's surface, grid and digit colours.
+class _SkinSwatch extends StatelessWidget {
+  const _SkinSwatch({required this.palette, required this.style});
+
+  final BoardPalette palette;
+  final BoardStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(style.cornerRadiusScale * 24),
+        border: Border.all(color: palette.boxLine, width: 1.2),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _MiniCell('5', palette.givenText, style.fontFamily),
+                ),
+                Expanded(
+                  child: _MiniCell('3', palette.entryText, style.fontFamily),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: ColoredBox(
+                    color: palette.selectionFill,
+                    child: _MiniCell('7', palette.entryText, style.fontFamily),
+                  ),
+                ),
+                Expanded(
+                  child: _MiniCell('2', palette.conflictText, style.fontFamily),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniCell extends StatelessWidget {
+  const _MiniCell(this.digit, this.color, this.family);
+
+  final String digit;
+  final Color color;
+  final String? family;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        digit,
+        style: TextStyle(
+          fontSize: 13,
+          height: 1,
+          fontWeight: FontWeight.w600,
+          color: color,
+          fontFamily: family,
+        ),
+      ),
+    );
+  }
+}
+
+/// Clock and score, shown only while the radial menu is open.
+///
+/// The immersive layout deliberately has nowhere to put these at rest; they
+/// appear with the controls and leave with them.
+class _ImmersiveStatus extends StatelessWidget {
+  const _ImmersiveStatus({required this.game});
+
+  final GameController game;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ValueListenableBuilder<Duration>(
+              valueListenable: game.elapsed,
+              builder: (context, value, _) => Text(
+                _GamePageState._format(value),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _ScoreChip(
+              count: game.correctMoves,
+              icon: Icons.check,
+              tone: _Tone.good,
+            ),
+            const SizedBox(width: 5),
+            _ScoreChip(
+              count: game.wrongMoves,
+              icon: Icons.close,
+              tone: _Tone.bad,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${game.remaining} left',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

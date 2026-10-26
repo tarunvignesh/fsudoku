@@ -31,9 +31,11 @@ class BoardRender {
     required this.conflictCells,
     required this.wrongCells,
     required this.celebrated,
+    required this.celebrationOrigin,
     required this.paused,
     required this.showCandidates,
     required this.palette,
+    required this.style,
     required this.devicePixelRatio,
     this.selected,
     this.hovered,
@@ -65,6 +67,9 @@ class BoardRender {
   /// Cells of a row, column or box the player just completed correctly.
   final Set<int> celebrated;
 
+  /// The cell the completing answer went into; the flourish starts here.
+  final int celebrationOrigin;
+
   /// Whether play is paused, in which case the board's contents are hidden.
   final bool paused;
 
@@ -72,6 +77,9 @@ class BoardRender {
   final bool showCandidates;
 
   final BoardPalette palette;
+
+  /// Line weights, proportions and typeface from the active skin.
+  final BoardStyle style;
 
   /// Used to snap grid lines onto physical pixels.
   final double devicePixelRatio;
@@ -108,10 +116,11 @@ class BoardPainter extends CustomPainter {
     final board = size.shortestSide;
     final edges = _snappedEdges(board, n, r.devicePixelRatio);
     final cell = board / n;
-    final radius = cell * 0.22;
+    final radius = cell * r.style.cornerRadiusScale;
 
     cache.configure(
       cellSize: cell,
+      style: r.style,
       colors: {
         GlyphRole.given: r.palette.givenText,
         GlyphRole.entry: r.palette.entryText,
@@ -168,10 +177,15 @@ class BoardPainter extends CustomPainter {
 
   void _paintBoxTints(Canvas canvas, List<double> edges, int n) {
     final r = render;
+    if (r.style.boxTint == BoxTint.none) return;
+
     final paint = Paint()..color = r.palette.boxTint;
     for (var bandRow = 0; bandRow < r.variant.bandRows; bandRow++) {
       for (var bandCol = 0; bandCol < r.variant.bandCols; bandCol++) {
-        if ((bandRow + bandCol).isEven) continue; // checkerboard of boxes
+        final shade = r.style.boxTint == BoxTint.bands
+            ? bandRow.isOdd
+            : (bandRow + bandCol).isOdd;
+        if (!shade) continue;
         final top = bandRow * r.variant.boxRows;
         final left = bandCol * r.variant.boxCols;
         canvas.drawRect(
@@ -251,23 +265,64 @@ class BoardPainter extends CustomPainter {
     }
   }
 
-  /// Washes a just-completed row, column or box, fading as the flourish ends.
+  /// How far into the flourish [cell] is, 0 to 1, or null if it has not begun.
+  ///
+  /// Cells start in order of their distance from [BoardRender.celebrationOrigin]
+  /// so the flourish travels outward from the move that caused it rather than
+  /// flashing the whole unit at once.
+  double? _celebrationPhase(int cell) {
+    final r = render;
+    final g = r.geometry;
+    final origin = r.celebrationOrigin;
+
+    // Chebyshev distance: a row, a column and a box all advance evenly.
+    final steps = math.max(
+      (g.rowOf[cell] - g.rowOf[origin]).abs(),
+      (g.colOf[cell] - g.colOf[origin]).abs(),
+    );
+    final spread = r.variant.size - 1;
+    final delay = spread == 0 ? 0.0 : (steps / spread) * _celebrationSpread;
+
+    final local = (r.celebrationProgress - delay) / (1 - _celebrationSpread);
+    if (local <= 0 || local >= 1) return null;
+    return local;
+  }
+
+  /// Share of the animation spent launching cells, leaving the rest to play.
+  static const double _celebrationSpread = 0.45;
+
+  /// Sends a wave of light along a just-completed row, column or box.
   void _paintCelebration(Canvas canvas, List<double> edges) {
     final r = render;
     if (r.celebrated.isEmpty || r.celebrationProgress >= 1) return;
 
-    // Rise quickly, fall away slowly: a flash of acknowledgement, not a pulse
-    // that competes with the player's next move.
-    final t = r.celebrationProgress;
-    final strength = t < 0.25 ? t / 0.25 : 1 - ((t - 0.25) / 0.75);
     final base = r.palette.completedUnitFill;
-    final paint = Paint()..color = base.withValues(alpha: base.a * strength);
-
     for (final c in r.celebrated) {
+      final phase = _celebrationPhase(c);
+      if (phase == null) continue;
+
+      // Rise and fall within each cell's own slice of the animation.
+      final strength = math.sin(phase * math.pi);
+      final rect = _cellRect(edges, r.geometry.rowOf[c], r.geometry.colOf[c]);
+
       canvas.drawRect(
-        _cellRect(edges, r.geometry.rowOf[c], r.geometry.colOf[c]),
-        paint,
+        rect,
+        Paint()..color = base.withValues(alpha: base.a * strength),
       );
+
+      // A bright edge rides the crest, which is what makes it read as a wave
+      // rather than a row of cells blinking.
+      if (strength > 0.55) {
+        canvas.drawRect(
+          rect.deflate(rect.width * 0.06),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..color = base.withValues(
+              alpha: ((strength - 0.55) / 0.45).clamp(0.0, 1.0) * 0.9,
+            ),
+        );
+      }
     }
   }
 
@@ -275,11 +330,11 @@ class BoardPainter extends CustomPainter {
     final r = render;
     final thin = Paint()
       ..color = r.palette.gridLine
-      ..strokeWidth = 1 / r.devicePixelRatio
+      ..strokeWidth = r.style.gridLineScale / r.devicePixelRatio
       ..isAntiAlias = false;
     final thick = Paint()
       ..color = r.palette.boxLine
-      ..strokeWidth = _thickStroke(r.devicePixelRatio)
+      ..strokeWidth = _thickStroke(r.devicePixelRatio) * r.style.boxLineScale
       ..isAntiAlias = false;
 
     for (var i = 1; i < n; i++) {
@@ -304,6 +359,18 @@ class BoardPainter extends CustomPainter {
       final rect = _cellRect(edges, r.geometry.rowOf[i], r.geometry.colOf[i]);
       final value = r.values[i];
 
+      // Digits ride the completion wave, scaling up slightly as it passes.
+      final lift = r.celebrated.contains(i) && r.celebrationProgress < 1
+          ? _celebrationPhase(i)
+          : null;
+      if (lift != null) {
+        canvas
+          ..save()
+          ..translate(rect.center.dx, rect.center.dy)
+          ..scale(1 + 0.16 * math.sin(lift * math.pi))
+          ..translate(-rect.center.dx, -rect.center.dy);
+      }
+
       if (value != 0) {
         // Givens, the player's correct answers, and the player's mistakes
         // each read differently, so progress is legible at a glance.
@@ -317,8 +384,10 @@ class BoardPainter extends CustomPainter {
           canvas,
           rect.center - Offset(glyph.width / 2, glyph.height / 2),
         );
+        if (lift != null) canvas.restore();
         continue;
       }
+      if (lift != null) canvas.restore();
 
       // Player notes take precedence; computed candidates fill in when asked.
       final noteMask = r.notes[i];
@@ -387,11 +456,13 @@ class BoardPainter extends CustomPainter {
         a.showCandidates != b.showCandidates ||
         a.paused != b.paused ||
         a.celebrationProgress != b.celebrationProgress ||
+        a.celebrationOrigin != b.celebrationOrigin ||
         !setEquals(a.wrongCells, b.wrongCells) ||
         !setEquals(a.celebrated, b.celebrated) ||
         a.selectionProgress != b.selectionProgress ||
         a.hintProgress != b.hintProgress ||
         a.palette != b.palette ||
+        a.style != b.style ||
         a.variant != b.variant ||
         a.devicePixelRatio != b.devicePixelRatio;
   }

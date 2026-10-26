@@ -213,7 +213,9 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final palette = Theme.of(context).extension<BoardPalette>()!;
+    final theme = Theme.of(context);
+    final palette = theme.extension<BoardPalette>()!;
+    final style = theme.extension<BoardStyle>()!;
     final dpr = MediaQuery.devicePixelRatioOf(context);
 
     return LayoutBuilder(
@@ -284,9 +286,11 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
                           conflictCells: conflicts,
                           wrongCells: wrong,
                           celebrated: c.celebrated,
+                          celebrationOrigin: c.celebrationOrigin,
                           paused: c.paused,
                           showCandidates: c.showCandidates,
                           palette: palette,
+                          style: style,
                           devicePixelRatio: dpr,
                           selected: c.selected,
                           hovered: _hovered,

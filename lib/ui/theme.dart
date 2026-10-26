@@ -154,8 +154,8 @@ class BoardPalette extends ThemeExtension<BoardPalette> {
     peerFill: Color(0x1F2563C9),
     hintFill: Color(0x3817A398),
     hintEvidenceFill: Color(0x1217A398),
-    noteText: Color(0xFF5B6475),
-    candidateText: Color(0xFF9AA2B1),
+    noteText: Color(0xFF4D5564),
+    candidateText: Color(0xFF636975),
     completedUnitFill: Color(0x2617A398),
   );
 
@@ -173,60 +173,137 @@ class BoardPalette extends ThemeExtension<BoardPalette> {
     peerFill: Color(0x2679B2FF),
     hintFill: Color(0x4D33D6C8),
     hintEvidenceFill: Color(0x1A33D6C8),
-    noteText: Color(0xFFA6AEBF),
-    candidateText: Color(0xFF6D7687),
+    noteText: Color(0xFF86B1EC),
+    candidateText: Color(0xFF8E96A3),
     completedUnitFill: Color(0x3333D6C8),
   );
 }
 
-/// Builds the app theme for [brightness].
-ThemeData buildAppTheme(Brightness brightness) {
-  final isDark = brightness == Brightness.dark;
-  // primary (blue)  -> the player's own entries and the selection
-  // tertiary (teal)  -> the teaching layer: hints and their evidence
-  // secondary        -> pencil-mark mode
-  // Tertiary is pinned rather than derived, so the hint panel matches the
-  // teal the board paints its hint cells with.
-  // Overriding `tertiary` alone is not enough: fromSeed derives the container
-  // roles from the seed, not from the override, so the hint panel would keep
-  // the seed's mauve while the hint icon turned teal.
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF2563C9),
-    brightness: brightness,
-    tertiary: isDark ? const Color(0xFF33D6C8) : const Color(0xFF17A398),
-    onTertiary: isDark ? const Color(0xFF00352F) : const Color(0xFFFFFFFF),
-    tertiaryContainer: isDark
-        ? const Color(0xFF07514B)
-        : const Color(0xFFB9EFE8),
-    onTertiaryContainer: isDark
-        ? const Color(0xFFB9EFE8)
-        : const Color(0xFF00322C),
-  );
+/// How a skin shades the boxes behind the grid.
+enum BoxTint {
+  /// Alternating boxes, like a chequerboard.
+  checker,
 
-  return ThemeData(
-    colorScheme: scheme,
-    brightness: brightness,
-    scaffoldBackgroundColor: isDark
-        ? const Color(0xFF0E1116)
-        : const Color(0xFFF4F6FA),
-    splashFactory: InkRipple.splashFactory,
-    visualDensity: VisualDensity.standard,
-    extensions: [isDark ? BoardPalette.dark : BoardPalette.light],
-    textTheme: isDark
-        ? Typography.material2021().white
-        : Typography.material2021().black,
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      ),
-    ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      ),
-    ),
+  /// Alternating bands of box-rows.
+  bands,
+
+  /// No shading; box boundaries read from the heavy lines alone.
+  none,
+}
+
+/// The non-colour half of a skin: line weights, proportions and type.
+///
+/// Held separately from [BoardPalette] because these survive a light/dark
+/// switch -- a skin keeps its character in both.
+@immutable
+class BoardStyle extends ThemeExtension<BoardStyle> {
+  /// Creates a board style.
+  const BoardStyle({
+    required this.fontFamily,
+    required this.gridLineScale,
+    required this.boxLineScale,
+    required this.cornerRadiusScale,
+    required this.boxTint,
+    required this.digitScale,
+    required this.noteScale,
+    required this.givenWeight,
+    required this.entryWeight,
+  });
+
+  /// Font for the board's digits, or null for the platform default.
+  final String? fontFamily;
+
+  /// Multiplies the hairline between cells.
+  final double gridLineScale;
+
+  /// Multiplies the heavier line between boxes.
+  final double boxLineScale;
+
+  /// Board corner rounding, as a fraction of one cell.
+  final double cornerRadiusScale;
+
+  /// How the boxes are shaded.
+  final BoxTint boxTint;
+
+  /// Digit size, as a fraction of one cell.
+  final double digitScale;
+
+  /// Pencil-mark size, as a fraction of one cell.
+  final double noteScale;
+
+  /// Weight for the puzzle's own clues.
+  final FontWeight givenWeight;
+
+  /// Weight for the player's answers.
+  final FontWeight entryWeight;
+
+  @override
+  BoardStyle copyWith({
+    String? fontFamily,
+    double? gridLineScale,
+    double? boxLineScale,
+    double? cornerRadiusScale,
+    BoxTint? boxTint,
+    double? digitScale,
+    double? noteScale,
+    FontWeight? givenWeight,
+    FontWeight? entryWeight,
+  }) {
+    return BoardStyle(
+      fontFamily: fontFamily ?? this.fontFamily,
+      gridLineScale: gridLineScale ?? this.gridLineScale,
+      boxLineScale: boxLineScale ?? this.boxLineScale,
+      cornerRadiusScale: cornerRadiusScale ?? this.cornerRadiusScale,
+      boxTint: boxTint ?? this.boxTint,
+      digitScale: digitScale ?? this.digitScale,
+      noteScale: noteScale ?? this.noteScale,
+      givenWeight: givenWeight ?? this.givenWeight,
+      entryWeight: entryWeight ?? this.entryWeight,
+    );
+  }
+
+  @override
+  BoardStyle lerp(BoardStyle? other, double t) {
+    if (other == null) return this;
+    // Discrete properties snap at the midpoint; sizes interpolate.
+    return BoardStyle(
+      fontFamily: t < 0.5 ? fontFamily : other.fontFamily,
+      gridLineScale: _lerp(gridLineScale, other.gridLineScale, t),
+      boxLineScale: _lerp(boxLineScale, other.boxLineScale, t),
+      cornerRadiusScale: _lerp(cornerRadiusScale, other.cornerRadiusScale, t),
+      boxTint: t < 0.5 ? boxTint : other.boxTint,
+      digitScale: _lerp(digitScale, other.digitScale, t),
+      noteScale: _lerp(noteScale, other.noteScale, t),
+      givenWeight: t < 0.5 ? givenWeight : other.givenWeight,
+      entryWeight: t < 0.5 ? entryWeight : other.entryWeight,
+    );
+  }
+
+  static double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  bool operator ==(Object other) =>
+      other is BoardStyle &&
+      other.fontFamily == fontFamily &&
+      other.gridLineScale == gridLineScale &&
+      other.boxLineScale == boxLineScale &&
+      other.cornerRadiusScale == cornerRadiusScale &&
+      other.boxTint == boxTint &&
+      other.digitScale == digitScale &&
+      other.noteScale == noteScale &&
+      other.givenWeight == givenWeight &&
+      other.entryWeight == entryWeight;
+
+  @override
+  int get hashCode => Object.hash(
+    fontFamily,
+    gridLineScale,
+    boxLineScale,
+    cornerRadiusScale,
+    boxTint,
+    digitScale,
+    noteScale,
+    givenWeight,
+    entryWeight,
   );
 }

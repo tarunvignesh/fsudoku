@@ -56,14 +56,55 @@ genuinely require a guess, and the app says which.
 
 **Immediate correctness.** A wrong digit turns red as you type it; a right one
 settles and locks, so finished cells cannot be disturbed by a stray keystroke.
-Completing a row, column or box flashes it. Counters track right and wrong
-answers, and pausing hides the board rather than just stopping the clock.
+Counters track right and wrong answers, and pausing hides the board rather than
+just stopping the clock.
+
+**Completion flourishes.** Finishing a row, column or box sends a wave of light
+along it, travelling outward from the cell you just played and lifting each
+digit as it passes — so the animation reads as a consequence of your move.
 
 **Pencil marks you can tell apart.** Your own marks are drawn rotated a quarter
 turn; the app's computed candidates are not. That separation — *I think* versus
 *I know* — is carried over from the first version of this app, where the whole
 cell rotated. Here only the mark layer does, so block separators stay on the
 right edges.
+
+## Skins
+
+Five identities, each setting its own palette, board proportions, line weights,
+typeface and control shapes — not just colours. Light and dark for every one.
+
+| | |
+| --- | --- |
+| ![](docs/screenshots/skin-picker.png) | ![](docs/screenshots/skin-newsprint.png) |
+| **Slate** · cool neutrals, crisp grid. **Material You** · saturated, chunky. | **Newsprint** · warm paper, serif digits, banded shading, hairline rules. |
+| ![](docs/screenshots/skin-terminal.png) | ![](docs/screenshots/skin-cupertino.png) |
+| **Terminal** · phosphor on black, monospaced, square corners, no box tint. | **Cupertino** · soft, generously rounded, iOS in feel. |
+
+Typography ships as ASCII subsets of three families at two weights each —
+**104 KB for all six files**, against about 4.4 MB for the full families.
+`tool/subset_fonts.py` regenerates them; all three families are SIL OFL 1.1,
+attributed in [`assets/fonts/ATTRIBUTION.md`](assets/fonts/ATTRIBUTION.md).
+
+Every skin's colours are held to WCAG 2.1 contrast minimums by
+`test/accessibility_test.dart`, which measures each text-on-background pair the
+board can actually produce, translucent highlights included. It found that
+candidate marks failed small-text contrast in **all ten** palettes; they were
+corrected rather than excused.
+
+## On a phone
+
+The board takes the whole screen, in either orientation. There is no title, no
+digit pad and no panel: digits are entered through the cell menu, and
+everything else lives behind one floating button that fans its actions out over
+the board.
+
+| Portrait controls | Landscape |
+| --- | --- |
+| ![](docs/screenshots/radial-menu.png) | ![](docs/screenshots/landscape.png) |
+
+Larger viewports get the full layout instead — side panel, digit pad, hint
+explanation and keyboard reference — because there is room for it.
 
 Your rotated pencil marks beside the app's upright candidates, and the digit
 menu open on a cell:
@@ -95,7 +136,8 @@ Fully playable from the keyboard, which is how most people will use it on the we
 | `Esc` | Dismiss the hint, then clear the selection |
 
 Pointer input works the way the original did: **click a cell** for the answer
-menu, **long-press or right-click** for the pencil menu. The menu opens on the
+menu, **long-press or right-click** for the pencil menu. (The browser's own
+context menu is suppressed, since right-click is a game gesture here.) The menu opens on the
 cell, so entry costs no pointer travel, and its digits are laid out on the
 variant's own box grid — the same arrangement the board and the pencil marks
 use.
@@ -112,10 +154,14 @@ lib/
     hint.dart       candidates, conflicts, explained hints
   state/
     game_controller.dart   the board being played, undo/redo, clock
+  state/
+    settings_controller.dart  the chosen skin and brightness
   ui/
     board/          the canvas board: painter, glyph cache, hit testing,
                     and the digit menu that opens on a cell
-    theme.dart      colour scheme + board design tokens
+    skins.dart      the five identities, and the theme they build
+    theme.dart      board design tokens (palette + proportions)
+    radial_menu.dart  the phone layout's one control
 ```
 
 The `engine/` directory imports nothing but `dart:math`. That is the whole
@@ -161,7 +207,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 81 tests, ~7s
+flutter test                   # 102 tests, ~9s
 flutter analyze
 ```
 
