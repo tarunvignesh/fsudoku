@@ -29,12 +29,14 @@ jobs:
 
       - run: flutter pub get
 
-      # GitHub Pages cannot set COOP/COEP response headers, so the WasmGC
-      # renderer would be stuck single-threaded there. CanvasKit is the better
-      # target for this host; deploy --wasm somewhere that can set headers.
+      # Ships the WasmGC target even though Pages cannot set COOP/COEP.
+      # Measured: without those headers skwasm still loads and paints, just
+      # single-threaded -- and this build is 2.2 MB gzipped against CanvasKit's
+      # 3.5 MB. Browsers without WasmGC (Safari) take the JS fallback that the
+      # same build already contains.
       - name: Build
         run: |
-          flutter build web --release --no-wasm-dry-run \
+          flutter build web --release --wasm \
             --base-href "/${GITHUB_REPOSITORY#*/}/"
 
       - uses: actions/upload-pages-artifact@v3

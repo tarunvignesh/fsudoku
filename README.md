@@ -252,31 +252,40 @@ flutter build web --release --wasm     # skwasm (WasmGC), with a JS fallback
 
 ### Deploying
 
-`.github/workflows/deploy.yaml` publishes to **GitHub Pages** on every push to
-`master`. It builds the CanvasKit target deliberately: Pages cannot set response
-headers, and the WasmGC renderer needs **cross-origin isolation** to use web
-workers —
+`.github/workflows/deploy.yaml` publishes the **WasmGC** build to **GitHub
+Pages** on every push to `master`. One build serves everyone: browsers with
+WasmGC run `main.dart.wasm`, and the rest (Safari) take the JS fallback the
+same build already contains.
+
+Measured in Chrome 152, both paths verified:
+
+| | First load, gzipped |
+| --- | --- |
+| WasmGC (`skwasm`) | **2.18 MB** |
+| JS fallback (CanvasKit) | 3.52 MB |
+
+Set **cross-origin isolation** where you can —
 
 ```
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-— or it silently drops to a single thread. To ship `--wasm`, host somewhere
-that can set headers; `web/_headers` already carries them for Netlify and
+— and skwasm rasterises on web workers. Without them it still loads and paints,
+just single-threaded, which is why Pages gets the wasm build anyway despite
+being unable to set headers. `web/_headers` carries them for Netlify and
 Cloudflare Pages, along with cache rules, and Flutter copies it into the build
 output as-is.
 
-Serve `.wasm` and `.js` with Brotli. Be aware of what Flutter web costs: the
-WasmGC path is ~2.1 MB gzipped on first load, and ~1.5 MB of that is the Skia
-renderer itself — a framework floor, not something the app controls. It caches
-after the first visit.
+Serve `.wasm` and `.js` with Brotli. About 1.5 MB of either payload is the Skia
+renderer — a framework floor, not something the app controls. It caches after
+the first visit.
 
 ## Status
 
 Playable and feature-complete on the web. **[Known gaps and technical
-debt](docs/TECH_DEBT.md)** is the honest list — the one worth reading first is
-that the WasmGC build has never been seen rendering in a real browser.
+debt](docs/TECH_DEBT.md)** is the honest list. Nothing on it is red any
+more; the heaviest remaining item is simply what Flutter web costs to load.
 
 **Your game survives a reload** — board, pencil marks, clock, counters, skin
 and mode — through a small `KeyValueStore` port backed by `localStorage` on the

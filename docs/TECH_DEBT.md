@@ -12,42 +12,39 @@ for a hosted app that strangers are expected to play.
   now survive a reload, through a ~90-line `KeyValueStore` port backed by
   `localStorage` on web and an in-memory stub elsewhere. No dependency, no
   database: the payload is one or two kilobytes of JSON.
+- **The WasmGC build had only ever been compiled, never seen running.** It is
+  now verified in Chrome 152: `main.dart.wasm` and `skwasm.wasm` load and the
+  board paints, both with cross-origin isolation (multi-threaded) and without
+  it (single-threaded). The earlier headless failures were an artefact of
+  `--virtual-time-budget`, which starves the workers skwasm needs.
 - **Correctness feedback revealed the solution.** That behaviour is now
   **Training** mode, and **Play** mode flags only rule breaks — a legal-but-
   wrong digit stays put, and correct cells do not settle, so a cell cannot be
   brute-forced by watching for the lock.
 
-## 1. The WasmGC build has only been verified by compiling it
+## 1. First load is heavy
 
-`flutter build web --wasm` succeeds and the dry run passes, but headless Chrome
-would not render it during development, so every visual check in this repo was
-made against the CanvasKit build. Before shipping the `--wasm` target to real
-users, open it in Chrome, Firefox and Safari and confirm it paints — Safari has
-no WasmGC and must fall back to the JS build.
+2.18 MB gzipped on the WasmGC path (3.52 MB if a browser falls back to
+CanvasKit), roughly 1.5 MB of which is the Skia renderer either way. That is
+Flutter web's floor, not something this app controls, but it is a real cost for
+a casual link click and worth knowing before choosing Flutter for something
+like this again. It caches after the first visit; serve with Brotli.
 
-## 2. First load is heavy
-
-About 2.1 MB gzipped on the WasmGC path, roughly 1.5 MB of which is the Skia
-renderer. That is Flutter web's floor, not something this app controls, but it
-is a real cost for a casual link click and worth knowing before choosing
-Flutter for something like this again. It caches after the first visit; serve
-with Brotli.
-
-## 3. Difficulty names oversell the top tier
+## 2. Difficulty names oversell the top tier
 
 `Tricky` means "dug as deep as uniqueness allows", and on 9×9 only about half of
 those boards actually require a guess. The app reports the truth per-puzzle in
 the status panel, but the tier name implies more than it guarantees. Either
 generate-and-reject until the board genuinely needs search, or rename the tier.
 
-## 4. Puzzle generation runs on the UI thread
+## 3. Puzzle generation runs on the UI thread
 
 Worst case ~24 ms on the VM, so one or two dropped frames when a new puzzle is
 requested, and only then. Flutter web has no isolates on `dart2js`, so moving it
 off-thread is not a simple `compute()` call. Acceptable as it stands; if the
 difficulty tiers ever dig deeper, it will need chunking across frames.
 
-## 5. Layout tests depend on test-font metrics
+## 4. Layout tests depend on test-font metrics
 
 `phone layouts give the board the whole screen` passes partly because the test
 font makes every glyph a full em square, which is *harsher* than reality —
@@ -56,14 +53,14 @@ slightly different from what a browser does, and a real overflow in a
 proportional font could slip past it. Golden tests over the painter would cover
 the visual side properly; there are none.
 
-## 6. Hover repaints via `setState`
+## 5. Hover repaints via `setState`
 
 `BoardView` rebuilds its subtree whenever the hovered cell changes. It is
 guarded so this happens once per cell crossed rather than per pointer move, and
 the repaint is one canvas layer — but a `ValueNotifier<int?>` feeding the
 painter directly would avoid the widget rebuild entirely.
 
-## 7. Smaller things
+## 6. Smaller things
 
 - The original's `'?'` "unsure" marker was not restored. It wrote a literal
   `'?'` into the board, which the model has no state for; a real third state
