@@ -69,6 +69,12 @@ moves were mistakes.
 **Completion flourishes.** Finishing a row, column or box sends a wave of light
 along it, travelling outward from the cell you just played and lifting each
 digit as it passes — so the animation reads as a consequence of your move.
+Finishing the board sweeps the whole grid, then reports how it went:
+
+![The result card](docs/screenshots/result-card.png)
+
+Best times are kept per size, difficulty **and** mode — a Play time and a
+Training time are not comparable, so they do not share a leaderboard.
 
 **Pencil marks you can tell apart.** Your own marks are drawn rotated a quarter
 turn; the app's computed candidates are not. That separation — *I think* versus
@@ -239,7 +245,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 131 tests, ~15s
+flutter test                   # 138 tests, ~15s
 flutter analyze
 ```
 

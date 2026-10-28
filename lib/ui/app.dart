@@ -18,6 +18,7 @@ import 'board/board_view.dart';
 import 'hint_panel.dart';
 import 'number_pad.dart';
 import 'radial_menu.dart';
+import 'result_card.dart';
 import 'skins.dart';
 import 'theme.dart';
 
@@ -293,11 +294,17 @@ class _GamePageState extends State<GamePage> {
       return;
     }
 
-    // Nothing follows by deduction. Say which of the two reasons it is.
+    // Nothing follows by deduction. Say which of the reasons it is -- and
+    // first of all, whether there is simply nothing left to find.
     final analysis = _game.analysis;
     final conflicts = analysis.conflicts();
     final starved = analysis.starvedCells();
-    final message = conflicts.isNotEmpty
+    final message = _game.remaining == 0
+        ? (conflicts.isEmpty
+              ? 'The board is finished. Nothing left to find.'
+              : 'The board is full, but some digits repeat. Clear the cells '
+                    'marked in red.')
+        : conflicts.isNotEmpty
         ? 'There is a repeated digit on the board. Clear the cells marked in '
               'red and the trail will pick up again.'
         : starved.isNotEmpty
@@ -339,36 +346,44 @@ class _GamePageState extends State<GamePage> {
   }
 
   Future<void> _announceWin() async {
-    final time = _game.elapsed.value;
-    final hints = _game.hintsUsed;
-    if (!mounted) return;
+    final played = GameResult(
+      variant: _game.variant,
+      difficulty: _game.difficulty,
+      mode: _game.mode,
+      elapsed: _game.totalElapsed,
+      correctMoves: _game.correctMoves,
+      wrongMoves: _game.wrongMoves,
+      hintsUsed: _game.hintsUsed,
+      blanks: _game.puzzle.blankCount,
+    );
+
+    // Reading and recording in one step, so the card can say whether the
+    // time was beaten without the record being written twice.
+    final result = played.against(widget.repository?.recordIfBest(played));
 
     _announce(
-      'Solved in ${_format(time)}.',
+      result.isPersonalBest
+          ? 'Solved in ${_format(result.elapsed)}. A new best time.'
+          : 'Solved in ${_format(result.elapsed)}.',
       assertiveness: Assertiveness.assertive,
     );
+
+    if (!mounted) return;
+
+    // Let the board's finale play before the card lands on top of it.
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Solved'),
-        content: Text(
-          '${_game.variant.label} · ${_game.difficulty.label}\n'
-          'Time ${_format(time)}\n'
-          '${hints == 0 ? "No hints used" : "$hints hint${hints == 1 ? "" : "s"} used"}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Stay here'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _game.newGame();
-            },
-            child: const Text('New puzzle'),
-          ),
-        ],
+      barrierColor: Theme.of(context).colorScheme.scrim.withValues(alpha: 0.45),
+      builder: (context) => ResultCard(
+        result: result,
+        onDismiss: () => Navigator.pop(context),
+        onNewPuzzle: () {
+          Navigator.pop(context);
+          _game.newGame();
+        },
       ),
     );
   }

@@ -337,6 +337,36 @@ void main() {
     expect(find.byType(CellMenu), findsNothing);
   });
 
+  testWidgets('asking for a hint on a finished board says so', (tester) async {
+    final game = GameController(variant: Variant.four, random: Random(5));
+    await tester.pumpWidget(FSudokuApp(controller: game));
+    await tester.pump();
+
+    for (var i = 0; i < 16; i++) {
+      if (game.values[i] != 0) continue;
+      game
+        ..select(i)
+        ..enterAnswer(game.puzzle.solution[i]);
+    }
+    // Let the finish play out and dismiss the result card first; the board
+    // is only reachable again once it is gone.
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(game.remaining, 0);
+    await tester.tap(find.text('Stay here'));
+    await tester.pumpAndSettle();
+
+    await press(tester, LogicalKeyboardKey.keyH);
+    await tester.pump();
+
+    expect(find.textContaining('Nothing left to find'), findsOneWidget);
+    expect(
+      find.textContaining('needs a guess'),
+      findsNothing,
+      reason: 'a finished board does not need a guess',
+    );
+  });
+
   testWidgets('roomy viewports keep the side panel', (tester) async {
     final view = tester.platformDispatcher.views.first;
     view.physicalSize = const Size(1440, 900);

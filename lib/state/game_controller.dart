@@ -221,6 +221,12 @@ class GameController extends ChangeNotifier {
   /// Increments each time a unit is completed, so the view can retrigger.
   int get celebrationTick => _celebrationTick;
 
+  /// Whether the running flourish is the one for finishing the whole board.
+  ///
+  /// The view gives this a longer, slower sweep: a finished puzzle deserves
+  /// more than the flash a single row gets.
+  bool get celebrationIsFinale => _celebrated.length == _variant.cellCount;
+
   /// The cell whose answer completed the unit.
   ///
   /// The flourish travels outward from here, so the animation reads as a
@@ -604,6 +610,12 @@ class GameController extends ChangeNotifier {
     _reanalyse();
     if (!_solved && _analysis.isSolved) {
       _solved = true;
+
+      // The finale sweeps the whole board, still outward from the cell that
+      // finished it, so the last move visibly causes the ending.
+      _celebrated = {for (var i = 0; i < _variant.cellCount; i++) i};
+      _celebrationTick++;
+
       _clock.stop();
       _ticker?.cancel();
       elapsed.value = totalElapsed;

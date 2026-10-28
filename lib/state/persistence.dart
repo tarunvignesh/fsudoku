@@ -163,6 +163,64 @@ class SettingsSnapshot {
   };
 }
 
+/// A finished puzzle, and how it went.
+class GameResult {
+  /// Creates a result.
+  const GameResult({
+    required this.variant,
+    required this.difficulty,
+    required this.mode,
+    required this.elapsed,
+    required this.correctMoves,
+    required this.wrongMoves,
+    required this.hintsUsed,
+    required this.blanks,
+    this.previousBest,
+  });
+
+  final Variant variant;
+  final Difficulty difficulty;
+  final GameMode mode;
+  final Duration elapsed;
+  final int correctMoves;
+  final int wrongMoves;
+  final int hintsUsed;
+
+  /// How many cells the player had to fill.
+  final int blanks;
+
+  /// The best time for this combination before this game, if any.
+  final Duration? previousBest;
+
+  /// Share of answers that were right first time, 0 to 1.
+  ///
+  /// Null in play mode, where mistakes are never counted.
+  double? get accuracy {
+    if (!mode.revealsCorrectness) return null;
+    final total = correctMoves + wrongMoves;
+    return total == 0 ? 1.0 : correctMoves / total;
+  }
+
+  /// Whether this run beat the previous best.
+  bool get isPersonalBest => previousBest == null || elapsed < previousBest!;
+
+  /// How this combination is keyed in the records table.
+  String get recordKey => '${variant.name}/${difficulty.name}/${mode.name}';
+
+  /// A copy of this result that knows what the previous best was.
+  GameResult against(Duration? best) => GameResult(
+    variant: variant,
+    difficulty: difficulty,
+    mode: mode,
+    elapsed: elapsed,
+    correctMoves: correctMoves,
+    wrongMoves: wrongMoves,
+    hintsUsed: hintsUsed,
+    blanks: blanks,
+    previousBest: best,
+  );
+}
+
 /// Reads and writes snapshots through a [KeyValueStore].
 ///
 /// Every failure is swallowed deliberately. Persistence is a convenience here;
@@ -178,6 +236,7 @@ class GameRepository {
 
   static const _gameKey = 'fsudoku.game.v1';
   static const _settingsKey = 'fsudoku.settings.v1';
+  static const _recordsKey = 'fsudoku.records.v1';
 
   /// The saved game, or null.
   GameSnapshot? loadGame() => _read(_gameKey, GameSnapshot.fromJson);
@@ -198,6 +257,31 @@ class GameRepository {
   /// Saves [snapshot].
   void saveSettings(SettingsSnapshot snapshot) =>
       _write(_settingsKey, snapshot.toJson());
+
+  /// Best times, keyed by [GameResult.recordKey].
+  Map<String, Duration> loadRecords() {
+    final raw = _read<Map<String, dynamic>>(_recordsKey, (json) => json);
+    if (raw == null) return {};
+    final out = <String, Duration>{};
+    raw.forEach((key, value) {
+      if (value is num) out[key] = Duration(milliseconds: value.toInt());
+    });
+    return out;
+  }
+
+  /// Records [result] if it beats what is stored, and returns the previous
+  /// best so the result can say whether it was beaten.
+  Duration? recordIfBest(GameResult result) {
+    final records = loadRecords();
+    final previous = records[result.recordKey];
+    if (previous == null || result.elapsed < previous) {
+      records[result.recordKey] = result.elapsed;
+      _write(_recordsKey, {
+        for (final e in records.entries) e.key: e.value.inMilliseconds,
+      });
+    }
+    return previous;
+  }
 
   /// Forgets the saved game.
   void clearGame() {

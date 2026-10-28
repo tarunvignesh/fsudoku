@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fsudoku/engine/puzzle.dart';
 import 'package:fsudoku/engine/solver.dart';
 import 'package:fsudoku/engine/variant.dart';
 import 'package:fsudoku/state/game_controller.dart';
@@ -235,6 +236,103 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(repository.loadGame(), isNull);
+    });
+  });
+
+  group('results and records', () {
+    GameResult resultWith({
+      required Duration elapsed,
+      int correct = 30,
+      int wrong = 2,
+      int hints = 1,
+      GameMode mode = GameMode.training,
+    }) => GameResult(
+      variant: Variant.nine,
+      difficulty: Difficulty.gentle,
+      mode: mode,
+      elapsed: elapsed,
+      correctMoves: correct,
+      wrongMoves: wrong,
+      hintsUsed: hints,
+      blanks: 40,
+    );
+
+    test('the first finish is a personal best', () {
+      final repository = GameRepository(InMemoryStore());
+      final played = resultWith(elapsed: const Duration(minutes: 5));
+      final previous = repository.recordIfBest(played);
+
+      expect(previous, isNull);
+      expect(played.against(previous).isPersonalBest, isTrue);
+      expect(repository.loadRecords()[played.recordKey]?.inMinutes, 5);
+    });
+
+    test('a slower run does not displace the record', () {
+      final repository = GameRepository(InMemoryStore());
+      repository.recordIfBest(resultWith(elapsed: const Duration(minutes: 4)));
+
+      final slower = resultWith(elapsed: const Duration(minutes: 9));
+      final previous = repository.recordIfBest(slower);
+
+      expect(previous, const Duration(minutes: 4));
+      expect(slower.against(previous).isPersonalBest, isFalse);
+      expect(
+        repository.loadRecords()[slower.recordKey],
+        const Duration(minutes: 4),
+        reason: 'the better time must survive',
+      );
+    });
+
+    test('a faster run takes the record', () {
+      final repository = GameRepository(InMemoryStore());
+      repository.recordIfBest(resultWith(elapsed: const Duration(minutes: 6)));
+
+      final faster = resultWith(elapsed: const Duration(minutes: 3));
+      final previous = repository.recordIfBest(faster);
+
+      expect(faster.against(previous).isPersonalBest, isTrue);
+      expect(
+        repository.loadRecords()[faster.recordKey],
+        const Duration(minutes: 3),
+      );
+    });
+
+    test('records are kept per size, difficulty and mode', () {
+      final repository = GameRepository(InMemoryStore());
+      repository.recordIfBest(resultWith(elapsed: const Duration(minutes: 5)));
+      repository.recordIfBest(
+        resultWith(elapsed: const Duration(minutes: 8), mode: GameMode.play),
+      );
+
+      final records = repository.loadRecords();
+      expect(records.length, 2, reason: 'modes do not share a leaderboard');
+      expect(records['nine/gentle/training'], const Duration(minutes: 5));
+      expect(records['nine/gentle/play'], const Duration(minutes: 8));
+    });
+
+    test('accuracy is reported in training and withheld in play', () {
+      expect(
+        resultWith(elapsed: Duration.zero).accuracy,
+        closeTo(30 / 32, 1e-9),
+      );
+      expect(
+        resultWith(elapsed: Duration.zero, mode: GameMode.play).accuracy,
+        isNull,
+        reason: 'play never counted the mistakes',
+      );
+      expect(
+        resultWith(elapsed: Duration.zero, correct: 40, wrong: 0).accuracy,
+        1.0,
+      );
+    });
+
+    test('corrupt records are ignored rather than fatal', () {
+      final store = InMemoryStore()
+        ..write(
+          'fsudoku.records.v1',
+          '{"nine/gentle/training": "not a number"}',
+        );
+      expect(GameRepository(store).loadRecords(), isEmpty);
     });
   });
 

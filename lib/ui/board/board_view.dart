@@ -88,7 +88,11 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
     final tick = widget.controller.celebrationTick;
     if (tick != _lastCelebration) {
       _lastCelebration = tick;
-      _celebrate.forward(from: 0);
+      _celebrate
+        ..duration = widget.controller.celebrationIsFinale
+            ? const Duration(milliseconds: 2200)
+            : const Duration(milliseconds: 900)
+        ..forward(from: 0);
     }
   }
 
