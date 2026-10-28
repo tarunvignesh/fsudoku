@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'motion.dart';
+
 import '../engine/solver.dart';
 import '../state/game_controller.dart';
 
@@ -98,7 +100,7 @@ class _DigitButton extends StatelessWidget {
       aspectRatio: 1,
       child: AnimatedOpacity(
         opacity: exhausted ? 0.32 : 1,
-        duration: const Duration(milliseconds: 180),
+        duration: motionOf(context, const Duration(milliseconds: 180)),
         child: Material(
           color: active
               ? accent.withValues(alpha: 0.22)

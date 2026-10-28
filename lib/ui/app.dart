@@ -2,12 +2,16 @@
 library;
 
 import 'package:flutter/material.dart';
+
+import 'motion.dart';
+
 import 'package:flutter/services.dart';
 
 import 'dart:async';
 
 import 'package:flutter/semantics.dart';
 
+import '../engine/hint.dart';
 import '../engine/puzzle.dart';
 import '../engine/variant.dart';
 import '../state/game_controller.dart';
@@ -56,11 +60,15 @@ class _FSudokuAppState extends State<FSudokuApp> {
   late final SettingsController _settings = _restoreSettings();
 
   SettingsController _restoreSettings() {
-    final supplied = widget.settings;
-    if (supplied != null) return supplied;
-    final controller = SettingsController();
-    final saved = _repository.loadSettings();
-    if (saved != null) controller.restore(saved);
+    final controller = widget.settings ?? SettingsController();
+    // Only load into a controller this page created; one handed in already
+    // carries whatever state its owner wanted.
+    if (widget.settings == null) {
+      final saved = _repository.loadSettings();
+      if (saved != null) controller.restore(saved);
+    }
+    // Saving is attached either way. Leaving it off for a supplied controller
+    // meant changes made through the UI were silently not persisted.
     controller.addListener(_saveSettings);
     return controller;
   }
@@ -85,8 +93,12 @@ class _FSudokuAppState extends State<FSudokuApp> {
         theme: buildAppTheme(_settings.skin, Brightness.light),
         darkTheme: buildAppTheme(_settings.skin, Brightness.dark),
         themeMode: _settings.themeMode,
-        // Long enough to see the skin change, short enough not to feel slow.
-        themeAnimationDuration: const Duration(milliseconds: 420),
+        // Long enough to see the skin change, short enough not to feel
+        // slow -- and nothing at all when motion is unwelcome.
+        themeAnimationDuration: motionOf(
+          context,
+          const Duration(milliseconds: 420),
+        ),
         themeAnimationCurve: Curves.easeOutCubic,
         home: GamePage(
           controller: widget.controller,
@@ -157,7 +169,9 @@ class _GamePageState extends State<GamePage> {
   @override
   void initState() {
     super.initState();
-    _game.addListener(_scheduleSave);
+    _game
+      ..addListener(_scheduleSave)
+      ..addListener(_speakSelectionIfAsked);
   }
 
   @override
@@ -175,6 +189,7 @@ class _GamePageState extends State<GamePage> {
     // widget tree, which a caller is easy to forget to do.
     _game
       ..removeListener(_scheduleSave)
+      ..removeListener(_speakSelectionIfAsked)
       ..dispose();
     _keyboard.dispose();
     super.dispose();
@@ -246,6 +261,21 @@ class _GamePageState extends State<GamePage> {
         _game.togglePause();
       case LogicalKeyboardKey.keyF:
         _settings.toggleGridOnly();
+      case LogicalKeyboardKey.keyV:
+        _settings.toggleSpeakSelection();
+        _announce(
+          _settings.speakSelection
+              ? 'Spoken selection on.'
+              : 'Spoken selection off.',
+        );
+      case LogicalKeyboardKey.keyR:
+        _readUnit(UnitKind.row);
+      case LogicalKeyboardKey.keyT:
+        _readUnit(UnitKind.column);
+      case LogicalKeyboardKey.keyB:
+        _readUnit(UnitKind.box);
+      case LogicalKeyboardKey.keyM:
+        _readNeeds();
       case LogicalKeyboardKey.keyH:
         _requestHint();
       case LogicalKeyboardKey.enter:
@@ -314,6 +344,43 @@ class _GamePageState extends State<GamePage> {
               'a guess: pick a cell with two candidates and try one.';
     _showSnack(message);
   }
+
+  /// Reads the selected cell's row, column or box out.
+  ///
+  /// Sight does this in a glance. Without it the only alternative is stepping
+  /// through every cell of the unit and holding them in memory, which is what
+  /// makes Sudoku hard to play by ear rather than the digit entry.
+  void _readUnit(UnitKind kind) {
+    final cell = _game.selected;
+    if (cell == null) {
+      _announce('Select a cell first.');
+      return;
+    }
+    final analysis = _game.analysis;
+    _announce(analysis.describeUnit(kind, analysis.unitIndexOf(kind, cell)));
+  }
+
+  /// Reads what the selected cell's three units still need.
+  void _readNeeds() {
+    final cell = _game.selected;
+    if (cell == null) {
+      _announce('Select a cell first.');
+      return;
+    }
+    _announce(_game.analysis.describeNeeds(cell));
+  }
+
+  /// Announces the selected cell, when spoken selection is on.
+  void _speakSelectionIfAsked() {
+    if (!_settings.speakSelection) return;
+    final cell = _game.selected;
+    if (cell == null) return;
+    if (cell == _lastSpokenCell) return;
+    _lastSpokenCell = cell;
+    _announce(_game.describeCellAloud(cell));
+  }
+
+  int? _lastSpokenCell;
 
   /// Speaks [message] to assistive technology.
   void _announce(
@@ -607,6 +674,18 @@ class _GamePageState extends State<GamePage> {
                     selected: skin.id == _settings.skin.id,
                     onTap: () => _settings.skin = skin,
                   ),
+                const SizedBox(height: 4),
+                SwitchListTile(
+                  value: _settings.speakSelection,
+                  onChanged: (v) => _settings.speakSelection = v,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Speak the selection'),
+                  subtitle: const Text(
+                    'Announce each cell as you move to it, without needing a '
+                    'screen reader. R, T and B read the row, column and box; '
+                    'M says what is still missing.',
+                  ),
+                ),
               ],
             ),
           ),
@@ -1356,6 +1435,9 @@ class _KeyboardLegend extends StatelessWidget {
     ('space', 'place the hint'),
     ('P', 'pause'),
     ('F', 'grid only'),
+    ('R / T / B', 'read row, column, box'),
+    ('M', 'what is still missing'),
+    ('V', 'speak the selection'),
     ('ctrl+Z', 'undo'),
   ];
 
@@ -1375,10 +1457,13 @@ class _KeyboardLegend extends StatelessWidget {
         for (final (keys, action) in _rows)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
+            // Both halves flex: the panel is a fixed width and these strings
+            // grow whenever a shortcut is added.
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 112,
+                  width: 104,
                   child: Text(
                     keys,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1387,10 +1472,12 @@ class _KeyboardLegend extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
-                  action,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                Expanded(
+                  child: Text(
+                    action,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ],

@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../state/persistence.dart';
+import 'motion.dart';
 import 'theme.dart';
 
 /// Reports a finished puzzle and how it went.
@@ -56,6 +57,12 @@ class _ResultCardState extends State<ResultCard>
 
   @override
   Widget build(BuildContext context) {
+    if (reduceMotionOf(context) && _controller.duration != Duration.zero) {
+      // Land on the finished card rather than staggering the stats in.
+      _controller
+        ..duration = Duration.zero
+        ..value = 1;
+    }
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final palette = theme.extension<BoardPalette>()!;

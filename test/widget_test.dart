@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:fsudoku/engine/variant.dart';
 import 'package:fsudoku/state/game_controller.dart';
+import 'package:fsudoku/state/persistence.dart';
 import 'package:fsudoku/state/settings_controller.dart';
+import 'package:fsudoku/state/storage/key_value_store.dart';
 import 'package:fsudoku/ui/board/board_view.dart';
 import 'package:fsudoku/ui/board/cell_menu.dart';
 import 'package:fsudoku/ui/number_pad.dart';
@@ -365,6 +367,51 @@ void main() {
       findsNothing,
       reason: 'a finished board does not need a guess',
     );
+  });
+
+  testWidgets('reduced motion collapses the animations', (tester) async {
+    // Set through the platform's accessibility features, not a MediaQuery:
+    // MaterialApp inserts its own MediaQuery from the view, so an injected
+    // one is discarded and the test would pass while proving nothing.
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    Future<int> framesToSettleAfterSelecting({required bool reduce}) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          FakeAccessibilityFeatures(disableAnimations: reduce);
+      final game = GameController(variant: Variant.four, random: Random(5));
+      await tester.pumpWidget(FSudokuApp(key: UniqueKey(), controller: game));
+      await tester.pumpAndSettle();
+
+      game.select(game.values.indexOf(0));
+      return tester.pumpAndSettle(const Duration(milliseconds: 16));
+    }
+
+    final animated = await framesToSettleAfterSelecting(reduce: false);
+    final reduced = await framesToSettleAfterSelecting(reduce: true);
+
+    expect(
+      reduced,
+      lessThan(animated),
+      reason: 'the selection highlight should not animate',
+    );
+    expect(reduced, lessThanOrEqualTo(3), reason: 'it should land at once');
+  });
+
+  testWidgets('V toggles spoken selection and it is remembered', (
+    tester,
+  ) async {
+    final repository = GameRepository(InMemoryStore());
+    final settings = SettingsController();
+    await tester.pumpWidget(
+      FSudokuApp(settings: settings, repository: repository),
+    );
+    await tester.pump();
+
+    expect(settings.speakSelection, isFalse);
+    await press(tester, LogicalKeyboardKey.keyV);
+    expect(settings.speakSelection, isTrue);
+
+    expect(repository.loadSettings()?.speakSelection, isTrue);
   });
 
   testWidgets('roomy viewports keep the side panel', (tester) async {

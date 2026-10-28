@@ -10,7 +10,9 @@ import 'dart:math';
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fsudoku/engine/hint.dart';
 import 'package:fsudoku/engine/variant.dart';
+import 'package:fsudoku/state/game_mode.dart';
 import 'package:fsudoku/state/game_controller.dart';
 import 'package:fsudoku/ui/app.dart';
 import 'package:fsudoku/ui/board/board_view.dart';
@@ -281,6 +283,108 @@ void main() {
         isFalse,
         reason: 'cells the smaller board does not have must be gone',
       );
+    });
+  });
+
+  group('queries that replace scanning', () {
+    testWidgets('R, T and B read the row, column and box', (tester) async {
+      final game = await pumpBoard(tester, variant: Variant.nine);
+      game.select(40); // row 5, column 5, middle box
+      await tester.pumpAndSettle();
+
+      final analysis = game.analysis;
+      expect(
+        analysis.describeUnit(UnitKind.row, 4),
+        startsWith('row 5 reads:'),
+      );
+      expect(
+        analysis.describeUnit(UnitKind.column, 4),
+        startsWith('column 5 reads:'),
+      );
+      expect(
+        analysis.describeUnit(UnitKind.box, 4),
+        startsWith('box 5 reads:'),
+      );
+
+      // Every cell of the unit is accounted for, blanks included.
+      final spoken = analysis.describeUnit(UnitKind.row, 4);
+      final items = spoken.split(':').last.split(',');
+      expect(items.length, 9, reason: 'all nine cells should be read');
+    });
+
+    testWidgets('M says what each unit still needs', (tester) async {
+      final game = await pumpBoard(tester, variant: Variant.four);
+      final blank = game.values.indexOf(0);
+      final needs = game.analysis.describeNeeds(blank);
+
+      expect(needs, contains('row'));
+      expect(needs, contains('column'));
+      expect(needs, contains('box'));
+      expect(needs, contains('This cell can take'));
+    });
+
+    test('a completed unit says so rather than listing nothing', () {
+      final game = GameController(variant: Variant.four, random: Random(5));
+      addTearDown(game.dispose);
+      for (var i = 0; i < 16; i++) {
+        if (game.values[i] != 0) continue;
+        game
+          ..select(i)
+          ..enterAnswer(game.puzzle.solution[i]);
+      }
+      final needs = game.analysis.describeNeeds(0);
+      expect(needs, contains('is complete'));
+      expect(needs, isNot(contains('still needs')));
+    });
+
+    test('placements name where a digit can go', () {
+      final game = GameController(variant: Variant.nine, random: Random(9));
+      addTearDown(game.dispose);
+      final analysis = game.analysis;
+      final blank = game.values.indexOf(0);
+      final digit = game.puzzle.solution[blank];
+
+      final where = analysis.describePlacements(blank, digit, UnitKind.box);
+      expect(where, anyOf(contains('can go'), contains('can only go')));
+      expect(where, contains('box'));
+
+      // A digit already in the unit is reported as placed, not as impossible.
+      final placed = game.values.firstWhere((v) => v != 0);
+      final again = analysis.describePlacements(blank, placed, UnitKind.row);
+      expect(
+        again,
+        anyOf(
+          contains('already placed'),
+          contains('can go'),
+          contains('wrong'),
+        ),
+      );
+    });
+
+    testWidgets('spoken selection honours the mode, like the board does', (
+      tester,
+    ) async {
+      final game = await pumpBoard(tester, variant: Variant.four);
+      final blank = game.values.indexOf(0);
+      final wrong = game.puzzle.solution[blank] == 1 ? 2 : 1;
+      game
+        ..select(blank)
+        ..enterAnswer(wrong);
+      await tester.pumpAndSettle();
+
+      // Training says so; play must not, or the mode would leak through audio.
+      expect(game.describeCellAloud(blank), endsWith('incorrect'));
+      game.mode = GameMode.play;
+      expect(game.describeCellAloud(blank), endsWith('$wrong'));
+      expect(game.describeCellAloud(blank), isNot(contains('incorrect')));
+    });
+
+    testWidgets('a paused board stays silent about its digits', (tester) async {
+      final game = await pumpBoard(tester, variant: Variant.four);
+      final given = game.values.indexWhere((v) => v != 0);
+      game.setPaused(paused: true);
+      await tester.pumpAndSettle();
+      expect(game.describeCellAloud(given), endsWith('hidden while paused'));
     });
   });
 

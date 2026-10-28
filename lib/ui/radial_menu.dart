@@ -5,6 +5,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'motion.dart';
+
 /// One action on the radial menu.
 @immutable
 class RadialAction {
@@ -109,6 +111,9 @@ class _RadialMenuState extends State<RadialMenu>
   @override
   Widget build(BuildContext context) {
     final count = widget.actions.length;
+    _controller
+      ..duration = motionOf(context, const Duration(milliseconds: 320))
+      ..reverseDuration = motionOf(context, const Duration(milliseconds: 220));
 
     // Deliberately fills its parent. A Stack only hit-tests within its own
     // bounds, so a small Stack with items fanned out beyond it would draw

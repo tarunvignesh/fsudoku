@@ -70,7 +70,14 @@ class Skin {
   final Color? tertiaryDark;
 
   /// Every skin the app ships, in the order the picker shows them.
-  static const List<Skin> all = [slate, newsprint, terminal, cupertino, you];
+  static const List<Skin> all = [
+    slate,
+    contrast,
+    newsprint,
+    terminal,
+    cupertino,
+    you,
+  ];
 
   /// Looks a skin up by [id], falling back to the default.
   static Skin byId(String? id) =>
@@ -99,6 +106,67 @@ class Skin {
       noteScale: 0.24,
       givenWeight: FontWeight.w600,
       entryWeight: FontWeight.w500,
+    ),
+  );
+
+  /// Maximum separation between every pair the board can produce.
+  ///
+  /// Built for low vision rather than for looks: pure black on white (and the
+  /// reverse), heavy rules, no box wash to muddy the text behind it, and
+  /// larger digits. Every pair still goes through the same contrast audit as
+  /// the rest, which here clears AAA rather than AA.
+  static const Skin contrast = Skin(
+    id: 'contrast',
+    label: 'High contrast',
+    description: 'Maximum legibility: heavy rules, large digits.',
+    flavor: SkinFlavor.material,
+    seed: Color(0xFF0040A0),
+    tertiaryLight: Color(0xFF005C2E),
+    tertiaryDark: Color(0xFF5CFFA8),
+    light: BoardPalette(
+      surface: Color(0xFFFFFFFF),
+      boxTint: Color(0x00000000),
+      gridLine: Color(0x66000000),
+      boxLine: Color(0xFF000000),
+      givenText: Color(0xFF000000),
+      entryText: Color(0xFF0040A0),
+      conflictText: Color(0xFFB00000),
+      conflictFill: Color(0x33B00000),
+      selectionFill: Color(0x3D0040A0),
+      peerFill: Color(0x140040A0),
+      hintFill: Color(0x33005C2E),
+      hintEvidenceFill: Color(0x14005C2E),
+      noteText: Color(0xFF333333),
+      candidateText: Color(0xFF595959),
+      completedUnitFill: Color(0x33005C2E),
+    ),
+    dark: BoardPalette(
+      surface: Color(0xFF000000),
+      boxTint: Color(0x00000000),
+      gridLine: Color(0x80FFFFFF),
+      boxLine: Color(0xFFFFFFFF),
+      givenText: Color(0xFFFFFFFF),
+      entryText: Color(0xFF7FC4FF),
+      conflictText: Color(0xFFFF7A7A),
+      conflictFill: Color(0x40FF7A7A),
+      selectionFill: Color(0x4D7FC4FF),
+      peerFill: Color(0x1F7FC4FF),
+      hintFill: Color(0x4D5CFFA8),
+      hintEvidenceFill: Color(0x1A5CFFA8),
+      noteText: Color(0xFFD9D9D9),
+      candidateText: Color(0xFFA6A6A6),
+      completedUnitFill: Color(0x4D5CFFA8),
+    ),
+    style: BoardStyle(
+      fontFamily: 'Inter',
+      gridLineScale: 1.4,
+      boxLineScale: 1.6,
+      cornerRadiusScale: 0.04,
+      boxTint: BoxTint.none,
+      digitScale: 0.64,
+      noteScale: 0.27,
+      givenWeight: FontWeight.w700,
+      entryWeight: FontWeight.w700,
     ),
   );
 

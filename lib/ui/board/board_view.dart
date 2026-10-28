@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../engine/hint.dart';
 import '../../state/game_controller.dart';
+import '../motion.dart';
 import '../theme.dart';
 import 'board_painter.dart';
 import 'cell_menu.dart';
@@ -48,6 +49,10 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
   int? _hovered;
   int _lastCelebration = 0;
 
+  /// Mirrors the platform's reduced-motion setting, read in [build] where a
+  /// MediaQuery is available and used by listeners where one is not.
+  bool _reduceMotion = false;
+
   /// The cell whose menu is open, and what it writes.
   int? _menuCell;
   CellMenuMode _menuMode = CellMenuMode.answer;
@@ -89,9 +94,11 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
     if (tick != _lastCelebration) {
       _lastCelebration = tick;
       _celebrate
-        ..duration = widget.controller.celebrationIsFinale
-            ? const Duration(milliseconds: 2200)
-            : const Duration(milliseconds: 900)
+        ..duration = _reduceMotion
+            ? Duration.zero
+            : (widget.controller.celebrationIsFinale
+                  ? const Duration(milliseconds: 2200)
+                  : const Duration(milliseconds: 900))
         ..forward(from: 0);
     }
   }
@@ -192,7 +199,7 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
       child: TweenAnimationBuilder<double>(
         key: ValueKey('$cell-$_menuMode'),
         tween: Tween(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 130),
+        duration: motionOf(context, const Duration(milliseconds: 130)),
         curve: Curves.easeOutBack,
         builder: (context, t, child) => Opacity(
           opacity: t.clamp(0.0, 1.0),
@@ -226,6 +233,10 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
     final palette = theme.extension<BoardPalette>()!;
     final style = theme.extension<BoardStyle>()!;
     final dpr = MediaQuery.devicePixelRatioOf(context);
+
+    _reduceMotion = reduceMotionOf(context);
+    _selection.duration = motionOf(context, const Duration(milliseconds: 170));
+    _hintFade.duration = motionOf(context, const Duration(milliseconds: 260));
 
     return LayoutBuilder(
       builder: (context, constraints) {

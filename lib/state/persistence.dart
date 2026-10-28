@@ -133,6 +133,7 @@ class SettingsSnapshot {
     required this.skinId,
     required this.themeModeName,
     required this.gridOnly,
+    this.speakSelection = false,
   });
 
   /// Rebuilds from [json], or null if unusable.
@@ -142,6 +143,7 @@ class SettingsSnapshot {
         skinId: json['skin'] as String,
         themeModeName: json['themeMode'] as String,
         gridOnly: json['gridOnly'] as bool? ?? false,
+        speakSelection: json['speakSelection'] as bool? ?? false,
       );
     } on Object {
       return null;
@@ -152,6 +154,9 @@ class SettingsSnapshot {
   final String themeModeName;
   final bool gridOnly;
 
+  /// Whether moving the selection is announced aloud.
+  final bool speakSelection;
+
   /// The skin this refers to, falling back to the default if it is gone.
   Skin get skin => Skin.byId(skinId);
 
@@ -160,6 +165,7 @@ class SettingsSnapshot {
     'skin': skinId,
     'themeMode': themeModeName,
     'gridOnly': gridOnly,
+    'speakSelection': speakSelection,
   };
 }
 

@@ -503,42 +503,19 @@ class BoardPainter extends CustomPainter {
   /// One cell, in the words a listener needs rather than the ones on screen.
   String _describeCell(int cell) {
     final r = render;
-    final where =
-        'row ${r.geometry.rowOf[cell] + 1}, '
-        'column ${r.geometry.colOf[cell] + 1}';
-
-    // Pausing hides the board; it must hide it from everyone equally.
-    if (r.paused) return '$where, hidden while paused';
-
-    final value = r.values[cell];
-    if (value != 0) {
-      if (r.givens[cell] != 0) return '$where, $value, clue';
-      // Saying nothing is right here. Calling an unflagged digit "correct"
-      // would be a lie in play mode, where nothing has been checked aloud.
-      if (!r.revealsCorrectness) return '$where, $value';
-      if (r.wrongCells.contains(cell)) return '$where, $value, incorrect';
-      return '$where, $value, correct';
-    }
-
-    final notes = digitsOf(r.notes[cell]);
-    if (notes.isNotEmpty) {
-      return '$where, empty, pencilled ${_list(notes)}';
-    }
-    if (r.showCandidates) {
-      final candidates = digitsOf(r.candidates[cell]);
-      if (candidates.isNotEmpty) {
-        return '$where, empty, candidates ${_list(candidates)}';
-      }
-      return '$where, empty, no candidates left';
-    }
-    return '$where, empty';
-  }
-
-  /// Joins digits the way they would be said aloud.
-  static String _list(List<int> digits) {
-    if (digits.length == 1) return '${digits.first}';
-    final head = digits.sublist(0, digits.length - 1).join(', ');
-    return '$head and ${digits.last}';
+    return spokenCell(
+      position:
+          'row ${r.geometry.rowOf[cell] + 1}, '
+          'column ${r.geometry.colOf[cell] + 1}',
+      value: r.values[cell],
+      isGiven: r.givens[cell] != 0,
+      isWrong: r.wrongCells.contains(cell),
+      revealsCorrectness: r.revealsCorrectness,
+      notesMask: r.notes[cell],
+      candidatesMask: r.candidates[cell],
+      showCandidates: r.showCandidates,
+      paused: r.paused,
+    );
   }
 
   @override

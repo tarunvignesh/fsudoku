@@ -17,6 +17,11 @@ for a hosted app that strangers are expected to play.
   board paints, both with cross-origin isolation (multi-threaded) and without
   it (single-threaded). The earlier headless failures were an artefact of
   `--virtual-time-budget`, which starves the workers skwasm needs.
+- **Animations ignored `prefers-reduced-motion`.** All five controllers and
+  every implicit animation now collapse to zero when the platform asks.
+- **The board could be read but not scanned.** `R`/`T`/`B`/`M` answer the
+  questions sight answers for free, and `V` speaks the selection without a
+  screen reader.
 - **Correctness feedback revealed the solution.** That behaviour is now
   **Training** mode, and **Play** mode flags only rule breaks — a legal-but-
   wrong digit stays put, and correct cells do not settle, so a cell cannot be

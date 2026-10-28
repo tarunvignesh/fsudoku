@@ -84,7 +84,7 @@ right edges.
 
 ## Skins
 
-Five identities, each setting its own palette, board proportions, line weights,
+Six identities, each setting its own palette, board proportions, line weights,
 typeface and control shapes — not just colours. Light and dark for every one.
 
 | | |
@@ -117,6 +117,35 @@ finished puzzle are announced.
 `test/semantics_test.dart` asserts all of it, because nothing on screen reveals
 whether it is right. Every one of its checks fails if the semantics layer is
 removed.
+
+### Playing without sight
+
+Reading a cell is the easy half. The hard half is **scanning** — your eye
+sweeps a row in a moment, and without that the only alternative is stepping
+through nine cells and holding them all in memory. That, not digit entry, is
+what makes Sudoku awkward to play by ear.
+
+So the board answers questions instead:
+
+| Key | Asks |
+| --- | --- |
+| `R` / `T` / `B` | Read this row, column or box, cell by cell |
+| `M` | *"Row 5 still needs 1, 4 and 8. Column 3 still needs 2 and 4. This box is complete. This cell can take 4."* |
+| `V` | Speak each cell as you move to it — no screen reader required |
+
+These go out through `SemanticsService`, so they reach assistive technology,
+but the shortcuts work for everyone: asking what a box still needs is simply a
+good feature.
+
+A **High contrast** skin serves low vision, which is a different need from
+blindness — pure black on white, heavy rules, no box wash behind the digits,
+larger figures. It clears AAA rather than AA, measured by the same audit as
+every other skin.
+
+Every animation honours `prefers-reduced-motion`: the completion sweep, the
+hint fade, the radial fan, the result card and the theme crossfade all collapse
+to nothing. People set that because movement makes them unwell, and the states
+the animations move between carry all the meaning anyway.
 
 Every skin's colours are held to WCAG 2.1 contrast minimums by
 `test/accessibility_test.dart`, which measures each text-on-background pair the
@@ -245,7 +274,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 138 tests, ~15s
+flutter test                   # 148 tests, ~15s
 flutter analyze
 ```
 

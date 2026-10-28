@@ -295,6 +295,19 @@ class GameController extends ChangeNotifier {
   /// Total time played, including any carried over from a restored game.
   Duration get totalElapsed => _restoredElapsed + _clock.elapsed;
 
+  /// How [cell] would be read out, honouring the active mode.
+  String describeCellAloud(int cell) => spokenCell(
+    position: _analysis.describeCell(cell),
+    value: _values[cell],
+    isGiven: isGiven(cell),
+    isWrong: isWrong(cell),
+    revealsCorrectness: _mode.revealsCorrectness,
+    notesMask: _notes[cell],
+    candidatesMask: _analysis.candidates[cell],
+    showCandidates: _showCandidates,
+    paused: _paused,
+  );
+
   /// Captures the current game for saving.
   GameSnapshot snapshot() => GameSnapshot(
     variant: _variant,

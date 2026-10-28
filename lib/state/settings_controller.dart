@@ -54,11 +54,28 @@ class SettingsController extends ChangeNotifier {
   /// Flips between the board alone and the full layout.
   void toggleGridOnly() => gridOnly = !_gridOnly;
 
+  /// Whether moving the selection announces the cell aloud.
+  ///
+  /// Independent of whether a screen reader is running: with this on the app
+  /// is playable with the screen off, by anyone.
+  bool get speakSelection => _speakSelection;
+  bool _speakSelection = false;
+
+  set speakSelection(bool value) {
+    if (_speakSelection == value) return;
+    _speakSelection = value;
+    notifyListeners();
+  }
+
+  /// Flips spoken selection on or off.
+  void toggleSpeakSelection() => speakSelection = !_speakSelection;
+
   /// Captures the current choices for saving.
   SettingsSnapshot snapshot() => SettingsSnapshot(
     skinId: _skin.id,
     themeModeName: _themeMode.name,
     gridOnly: _gridOnly,
+    speakSelection: _speakSelection,
   );
 
   /// Applies a saved [snapshot].
@@ -69,6 +86,7 @@ class SettingsController extends ChangeNotifier {
       orElse: () => ThemeMode.system,
     );
     _gridOnly = snapshot.gridOnly;
+    _speakSelection = snapshot.speakSelection;
     notifyListeners();
   }
 }

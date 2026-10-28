@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'motion.dart';
+
 import '../engine/hint.dart';
 import '../state/game_controller.dart';
 
@@ -28,7 +30,7 @@ class HintPanel extends StatelessWidget {
         final hint = controller.hint;
 
         return AnimatedSize(
-          duration: const Duration(milliseconds: 220),
+          duration: motionOf(context, const Duration(milliseconds: 220)),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: Container(
