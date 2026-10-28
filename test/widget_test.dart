@@ -143,35 +143,24 @@ void main() {
   });
 
   testWidgets('N toggles notes mode and C toggles candidates', (tester) async {
-    await tester.pumpWidget(const FSudokuApp());
+    // Asserts controller state rather than button styling. The styling moved
+    // once training mode began showing candidates by default, and a test
+    // counting outlined buttons then broke for a reason unrelated to toggles.
+    final game = GameController(variant: Variant.four, random: Random(5));
+    await tester.pumpWidget(FSudokuApp(controller: game));
     await tester.pump();
 
-    // Both start off; toggling is reflected in the tool buttons' styling,
-    // which switches between outlined and filled.
-    final outlinedAtRest = tester
-        .widgetList(find.byType(OutlinedButton))
-        .length;
-
+    expect(game.notesMode, isFalse);
     await press(tester, LogicalKeyboardKey.keyN);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widgetList(find.byType(OutlinedButton)).length,
-      lessThan(outlinedAtRest),
-    );
-
+    expect(game.notesMode, isTrue);
     await press(tester, LogicalKeyboardKey.keyN);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widgetList(find.byType(OutlinedButton)).length,
-      outlinedAtRest,
-    );
+    expect(game.notesMode, isFalse);
 
+    final before = game.showCandidates;
     await press(tester, LogicalKeyboardKey.keyC);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widgetList(find.byType(OutlinedButton)).length,
-      lessThan(outlinedAtRest),
-    );
+    expect(game.showCandidates, !before);
+    await press(tester, LogicalKeyboardKey.keyC);
+    expect(game.showCandidates, before);
   });
 
   testWidgets('phone layouts give the board the whole screen', (tester) async {

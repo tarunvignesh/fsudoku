@@ -30,6 +30,7 @@ class BoardRender {
     required this.candidates,
     required this.conflictCells,
     required this.wrongCells,
+    required this.revealsCorrectness,
     required this.celebrated,
     required this.celebrationOrigin,
     required this.paused,
@@ -62,7 +63,13 @@ class BoardRender {
   final Set<int> conflictCells;
 
   /// Filled cells whose digit is not the one the solution requires.
+  ///
+  /// Empty when the mode does not reveal correctness; see [revealsCorrectness],
+  /// which distinguishes "nothing is wrong" from "we are not saying".
   final Set<int> wrongCells;
+
+  /// Whether the active mode marks right and wrong answers at all.
+  final bool revealsCorrectness;
 
   /// Cells of a row, column or box the player just completed correctly.
   final Set<int> celebrated;
@@ -485,9 +492,12 @@ class BoardPainter extends CustomPainter {
 
   bool _isLocked(int cell) {
     final r = render;
-    // A given, or a player answer that is right, takes no further input.
+    // A given always. A correct answer only where the mode has already said
+    // so -- otherwise "cannot be edited" would leak the same information.
     return r.givens[cell] != 0 ||
-        (r.values[cell] != 0 && !r.wrongCells.contains(cell));
+        (r.revealsCorrectness &&
+            r.values[cell] != 0 &&
+            !r.wrongCells.contains(cell));
   }
 
   /// One cell, in the words a listener needs rather than the ones on screen.
@@ -503,6 +513,9 @@ class BoardPainter extends CustomPainter {
     final value = r.values[cell];
     if (value != 0) {
       if (r.givens[cell] != 0) return '$where, $value, clue';
+      // Saying nothing is right here. Calling an unflagged digit "correct"
+      // would be a lie in play mode, where nothing has been checked aloud.
+      if (!r.revealsCorrectness) return '$where, $value';
       if (r.wrongCells.contains(cell)) return '$where, $value, incorrect';
       return '$where, $value, correct';
     }
@@ -536,6 +549,7 @@ class BoardPainter extends CustomPainter {
         a.selected != b.selected ||
         a.paused != b.paused ||
         a.showCandidates != b.showCandidates ||
+        a.revealsCorrectness != b.revealsCorrectness ||
         a.variant != b.variant ||
         !setEquals(a.wrongCells, b.wrongCells);
   }
@@ -550,6 +564,7 @@ class BoardPainter extends CustomPainter {
         a.hint != b.hint ||
         a.showCandidates != b.showCandidates ||
         a.paused != b.paused ||
+        a.revealsCorrectness != b.revealsCorrectness ||
         a.celebrationProgress != b.celebrationProgress ||
         a.celebrationOrigin != b.celebrationOrigin ||
         !setEquals(a.wrongCells, b.wrongCells) ||

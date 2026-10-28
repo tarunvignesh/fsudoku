@@ -248,9 +248,12 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
               final conflicts = <int>{
                 for (final conflict in analysis.conflicts()) conflict.cell,
               };
+              // Empty in play mode: nothing is marked wrong there, and the
+              // painter is told why so it does not report the rest as right.
               final wrong = <int>{
-                for (var i = 0; i < c.values.length; i++)
-                  if (c.isWrong(i)) i,
+                if (c.mode.revealsCorrectness)
+                  for (var i = 0; i < c.values.length; i++)
+                    if (c.isWrong(i)) i,
               };
 
               return Semantics(
@@ -318,6 +321,7 @@ class _BoardViewState extends State<BoardView> with TickerProviderStateMixin {
                             candidates: analysis.candidates,
                             conflictCells: conflicts,
                             wrongCells: wrong,
+                            revealsCorrectness: c.mode.revealsCorrectness,
                             celebrated: c.celebrated,
                             celebrationOrigin: c.celebrationOrigin,
                             paused: c.paused,

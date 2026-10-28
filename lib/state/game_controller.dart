@@ -11,6 +11,8 @@ import '../engine/hint.dart';
 import '../engine/puzzle.dart';
 import '../engine/solver.dart';
 import '../engine/variant.dart';
+import 'game_mode.dart';
+import 'persistence.dart';
 
 /// One reversible change to a single cell.
 ///
@@ -55,16 +57,48 @@ class GameController extends ChangeNotifier {
   GameController({
     Variant variant = Variant.nine,
     Difficulty difficulty = Difficulty.gentle,
+    GameMode mode = GameMode.training,
     Random? random,
   }) {
     _variant = variant;
     _difficulty = difficulty;
+    _mode = mode;
+    _showCandidates = mode.showsCandidatesByDefault;
     _random = random;
     _start();
   }
 
+  /// Rebuilds a game from [snapshot] instead of generating a new one.
+  GameController.restored(GameSnapshot snapshot, {Random? random}) {
+    _variant = snapshot.variant;
+    _difficulty = snapshot.difficulty;
+    _mode = snapshot.mode;
+    _showCandidates = snapshot.showCandidates;
+    _random = random;
+
+    _puzzle = snapshot.puzzle;
+    _values = List<int>.of(snapshot.values);
+    _notes = List<int>.of(snapshot.notes);
+    _correctMoves = snapshot.correctMoves;
+    _wrongMoves = snapshot.wrongMoves;
+    _hintsUsed = snapshot.hintsUsed;
+    _reanalyse();
+    _solved = _analysis.isSolved;
+
+    // The clock resumes where it stopped. Stopwatch cannot be seeded, so the
+    // saved time is carried alongside and added to whatever it measures next.
+    _restoredElapsed = snapshot.elapsed;
+    elapsed.value = snapshot.elapsed;
+    _clock.start();
+    _startTicker();
+  }
+
+  /// Time already played before this session, for a restored game.
+  Duration _restoredElapsed = Duration.zero;
+
   late Variant _variant;
   late Difficulty _difficulty;
+  late GameMode _mode;
   Random? _random;
 
   late Puzzle _puzzle;
@@ -108,6 +142,22 @@ class GameController extends ChangeNotifier {
 
   Variant get variant => _variant;
   Difficulty get difficulty => _difficulty;
+
+  /// How much the app reveals while you play.
+  GameMode get mode => _mode;
+
+  /// Switches mode, carrying the candidate overlay with it.
+  ///
+  /// The board keeps its contents: a wrong digit entered in training does not
+  /// disappear on switching to play, it simply stops being marked wrong.
+  set mode(GameMode value) {
+    if (_mode == value) return;
+    _mode = value;
+    _showCandidates = value.showsCandidatesByDefault;
+    _hint = null;
+    notifyListeners();
+  }
+
   Puzzle get puzzle => _puzzle;
 
   /// Current board contents, one digit per cell with 0 for empty.
@@ -188,14 +238,18 @@ class GameController extends ChangeNotifier {
       _values[cell] != 0 && _values[cell] == _puzzle.solution[cell];
 
   /// True when [cell] holds a digit that is not the solution's.
+  ///
+  /// Always computed; whether it is ever *shown* is [GameMode]'s business.
   bool isWrong(int cell) =>
       _values[cell] != 0 && _values[cell] != _puzzle.solution[cell];
 
   /// True when [cell] can no longer be edited.
   ///
-  /// Givens are fixed, and so is any answer the player has got right: settled
-  /// cells stay settled, so progress cannot be undone by a stray keystroke.
-  bool isLocked(int cell) => isGiven(cell) || isCorrect(cell);
+  /// Givens are always fixed. A correct answer settles only in training,
+  /// where the app has already said it is right -- in play, locking would
+  /// reveal the same thing by the back door.
+  bool isLocked(int cell) =>
+      isGiven(cell) || (_mode.revealsCorrectness && isCorrect(cell));
 
   // ------------------------------------------------------------- lifecycle
 
@@ -211,20 +265,45 @@ class GameController extends ChangeNotifier {
     _solved = false;
     _notesMode = false;
     _paused = false;
+    _showCandidates = _mode.showsCandidatesByDefault;
     _correctMoves = 0;
     _wrongMoves = 0;
     _celebrated = const {};
     _reanalyse();
 
+    _restoredElapsed = Duration.zero;
     _clock
       ..reset()
       ..start();
     elapsed.value = Duration.zero;
+    _startTicker();
+  }
+
+  void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      elapsed.value = _clock.elapsed;
+      elapsed.value = _restoredElapsed + _clock.elapsed;
     });
   }
+
+  /// Total time played, including any carried over from a restored game.
+  Duration get totalElapsed => _restoredElapsed + _clock.elapsed;
+
+  /// Captures the current game for saving.
+  GameSnapshot snapshot() => GameSnapshot(
+    variant: _variant,
+    difficulty: _difficulty,
+    mode: _mode,
+    givens: _puzzle.givens,
+    solution: _puzzle.solution,
+    values: _values,
+    notes: _notes,
+    elapsed: totalElapsed,
+    correctMoves: _correctMoves,
+    wrongMoves: _wrongMoves,
+    hintsUsed: _hintsUsed,
+    showCandidates: _showCandidates,
+  );
 
   /// Starts a fresh puzzle, optionally changing [variant] or [difficulty].
   void newGame({Variant? variant, Difficulty? difficulty}) {
@@ -247,6 +326,7 @@ class GameController extends ChangeNotifier {
     _wrongMoves = 0;
     _celebrated = const {};
     _reanalyse();
+    _restoredElapsed = Duration.zero;
     _clock
       ..reset()
       ..start();
@@ -526,7 +606,7 @@ class GameController extends ChangeNotifier {
       _solved = true;
       _clock.stop();
       _ticker?.cancel();
-      elapsed.value = _clock.elapsed;
+      elapsed.value = totalElapsed;
       notifyListeners();
       onSolved?.call();
       return;

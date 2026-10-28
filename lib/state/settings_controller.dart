@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../ui/skins.dart';
+import 'persistence.dart';
 
 /// Holds the chosen skin and brightness.
 ///
@@ -53,26 +54,21 @@ class SettingsController extends ChangeNotifier {
   /// Flips between the board alone and the full layout.
   void toggleGridOnly() => gridOnly = !_gridOnly;
 
-  /// Steps system -> light -> dark -> system.
-  void cycleThemeMode() {
-    themeMode = switch (_themeMode) {
-      ThemeMode.system => ThemeMode.light,
-      ThemeMode.light => ThemeMode.dark,
-      ThemeMode.dark => ThemeMode.system,
-    };
+  /// Captures the current choices for saving.
+  SettingsSnapshot snapshot() => SettingsSnapshot(
+    skinId: _skin.id,
+    themeModeName: _themeMode.name,
+    gridOnly: _gridOnly,
+  );
+
+  /// Applies a saved [snapshot].
+  void restore(SettingsSnapshot snapshot) {
+    _skin = snapshot.skin;
+    _themeMode = ThemeMode.values.firstWhere(
+      (m) => m.name == snapshot.themeModeName,
+      orElse: () => ThemeMode.system,
+    );
+    _gridOnly = snapshot.gridOnly;
+    notifyListeners();
   }
-
-  /// Icon representing the current mode.
-  IconData get themeModeIcon => switch (_themeMode) {
-    ThemeMode.system => Icons.brightness_auto,
-    ThemeMode.light => Icons.light_mode,
-    ThemeMode.dark => Icons.dark_mode,
-  };
-
-  /// Name of the current mode.
-  String get themeModeLabel => switch (_themeMode) {
-    ThemeMode.system => 'Auto',
-    ThemeMode.light => 'Light',
-    ThemeMode.dark => 'Dark',
-  };
 }

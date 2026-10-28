@@ -54,10 +54,17 @@ by deduction alone. `Tricky` digs as deep as uniqueness allows and then tells
 you the truth about what it produced — roughly half of 9×9 `Tricky` boards
 genuinely require a guess, and the app says which.
 
-**Immediate correctness.** A wrong digit turns red as you type it; a right one
-settles and locks, so finished cells cannot be disturbed by a stray keystroke.
-Counters track right and wrong answers, and pausing hides the board rather than
-just stopping the clock.
+**Two modes, because assistance should be a choice.** **Training** shows
+candidates, flags a wrong digit as you type it, and settles the ones you get
+right so a stray keystroke cannot undo progress. **Play** flags only what
+breaks a rule — a legal-but-wrong digit stays exactly where you put it, and
+correct cells do not lock, so you cannot find an answer by trying digits until
+one sticks. The app checks against the solution either way; the mode decides
+whether it says so.
+
+Pausing hides the board rather than just stopping the clock, and the move
+counters appear only in Training, where the app has already told you which
+moves were mistakes.
 
 **Completion flourishes.** Finishing a row, column or box sends a wave of light
 along it, travelling outward from the cell you just played and lifting each
@@ -178,6 +185,9 @@ lib/
     game_controller.dart   the board being played, undo/redo, clock
   state/
     settings_controller.dart  the chosen skin and brightness
+    game_mode.dart            training vs play
+    persistence.dart          snapshots of a game and its settings
+    storage/                  a tiny key-value port: localStorage, or a stub
   ui/
     board/          the canvas board: painter, glyph cache, hit testing,
                     and the digit menu that opens on a cell
@@ -229,7 +239,7 @@ nine ways puts grid lines on fractional pixels and the whole grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 117 tests, ~9s
+flutter test                   # 131 tests, ~15s
 flutter analyze
 ```
 
@@ -266,10 +276,17 @@ after the first visit.
 
 Playable and feature-complete on the web. **[Known gaps and technical
 debt](docs/TECH_DEBT.md)** is the honest list — the one worth reading first is
-that nothing is persisted across a reload.
+that the WasmGC build has never been seen rendering in a real browser.
+
+**Your game survives a reload** — board, pencil marks, clock, counters, skin
+and mode — through a small `KeyValueStore` port backed by `localStorage` on the
+web and an in-memory stub elsewhere. No dependency and no database: a game in
+progress is one or two kilobytes of JSON, and shipping a wasm build of SQLite
+to store that would add roughly a megabyte to the payload.
 
 iOS is the next target. The engine needs no changes to get there; the platform
-scaffolding is current. The application id is `io.github.conatarun.fsudoku`, a
+scaffolding is current, and persistence needs only one more implementation of
+that same interface. The application id is `io.github.conatarun.fsudoku`, a
 neutral namespace worth changing before any store submission.
 
 ## History

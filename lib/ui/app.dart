@@ -11,6 +11,8 @@ import 'package:flutter/semantics.dart';
 import '../engine/puzzle.dart';
 import '../engine/variant.dart';
 import '../state/game_controller.dart';
+import '../state/game_mode.dart';
+import '../state/persistence.dart';
 import '../state/settings_controller.dart';
 import 'board/board_view.dart';
 import 'hint_panel.dart';
@@ -26,7 +28,12 @@ class FSudokuApp extends StatefulWidget {
   /// Pass [controller] to drive a specific game, which lets tests work
   /// against a seeded puzzle instead of a random one, and [settings] to start
   /// on a particular skin.
-  const FSudokuApp({super.key, this.controller, this.settings});
+  const FSudokuApp({
+    super.key,
+    this.controller,
+    this.settings,
+    this.repository,
+  });
 
   /// An externally supplied game, or null to start a fresh one.
   final GameController? controller;
@@ -34,17 +41,36 @@ class FSudokuApp extends StatefulWidget {
   /// Externally supplied presentation settings, or null for the defaults.
   final SettingsController? settings;
 
+  /// Where saved games and settings live, or null to use the platform's.
+  final GameRepository? repository;
+
   @override
   State<FSudokuApp> createState() => _FSudokuAppState();
 }
 
 class _FSudokuAppState extends State<FSudokuApp> {
-  late final SettingsController _settings =
-      widget.settings ?? SettingsController();
+  late final GameRepository _repository =
+      widget.repository ?? GameRepository.forPlatform();
+
+  late final SettingsController _settings = _restoreSettings();
+
+  SettingsController _restoreSettings() {
+    final supplied = widget.settings;
+    if (supplied != null) return supplied;
+    final controller = SettingsController();
+    final saved = _repository.loadSettings();
+    if (saved != null) controller.restore(saved);
+    controller.addListener(_saveSettings);
+    return controller;
+  }
+
+  void _saveSettings() => _repository.saveSettings(_settings.snapshot());
 
   @override
   void dispose() {
-    _settings.dispose();
+    _settings
+      ..removeListener(_saveSettings)
+      ..dispose();
     super.dispose();
   }
 
@@ -61,7 +87,11 @@ class _FSudokuAppState extends State<FSudokuApp> {
         // Long enough to see the skin change, short enough not to feel slow.
         themeAnimationDuration: const Duration(milliseconds: 420),
         themeAnimationCurve: Curves.easeOutCubic,
-        home: GamePage(controller: widget.controller, settings: _settings),
+        home: GamePage(
+          controller: widget.controller,
+          settings: _settings,
+          repository: _repository,
+        ),
       ),
     );
   }
@@ -70,7 +100,7 @@ class _FSudokuAppState extends State<FSudokuApp> {
 /// The single screen: board, controls and hint explanation.
 class GamePage extends StatefulWidget {
   /// Creates the game page.
-  const GamePage({super.key, this.controller, this.settings});
+  const GamePage({super.key, this.controller, this.settings, this.repository});
 
   /// An externally supplied game, or null to start a fresh one.
   final GameController? controller;
@@ -78,23 +108,73 @@ class GamePage extends StatefulWidget {
   /// Presentation settings, or null to use defaults owned by this page.
   final SettingsController? settings;
 
+  /// Where the game is saved, or null for an unsaved session.
+  final GameRepository? repository;
+
   @override
   State<GamePage> createState() => _GamePageState();
 }
 
 class _GamePageState extends State<GamePage> {
-  late final GameController _game = (widget.controller ?? GameController())
-    ..onSolved = _announceWin;
+  late final GameController _game = _restoreGame()..onSolved = _announceWin;
+
+  /// Picks up the saved game, or starts a new one.
+  GameController _restoreGame() {
+    final supplied = widget.controller;
+    if (supplied != null) return supplied;
+
+    final saved = widget.repository?.loadGame();
+    if (saved != null) return GameController.restored(saved);
+    return GameController();
+  }
+
+  Timer? _saveDebounce;
+
+  /// Writes the game out shortly after it settles.
+  ///
+  /// Debounced because the board changes on every keystroke and a write per
+  /// stroke would be wasteful; the delay is short enough that closing the tab
+  /// loses at most the last move.
+  void _scheduleSave() {
+    final repository = widget.repository;
+    if (repository == null) return;
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 400), () {
+      // A finished puzzle is not worth restoring into.
+      if (_game.isSolved) {
+        repository.clearGame();
+      } else {
+        repository.saveGame(_game.snapshot());
+      }
+    });
+  }
+
   late final SettingsController _settings =
       widget.settings ?? SettingsController();
   final FocusNode _keyboard = FocusNode(debugLabel: 'board-keyboard');
 
   @override
+  void initState() {
+    super.initState();
+    _game.addListener(_scheduleSave);
+  }
+
+  @override
   void dispose() {
+    // Flush rather than drop: whatever is pending is the most recent state,
+    // and the debounce timer is about to be cancelled with it.
+    _saveDebounce?.cancel();
+    final repository = widget.repository;
+    if (repository != null && !_game.isSolved) {
+      repository.saveGame(_game.snapshot());
+    }
+
     // The page takes ownership of its controller, injected or not, and so
     // disposes it here. That keeps the controller's clock from outliving the
     // widget tree, which a caller is easy to forget to do.
-    _game.dispose();
+    _game
+      ..removeListener(_scheduleSave)
+      ..dispose();
     _keyboard.dispose();
     super.dispose();
   }
@@ -553,6 +633,15 @@ class _GamePageState extends State<GamePage> {
                   selected: {_game.difficulty},
                   onSelectionChanged: (s) => _game.newGame(difficulty: s.first),
                 ),
+                const SizedBox(height: 10),
+                _ModePicker(game: _game),
+                const SizedBox(height: 6),
+                Text(
+                  _game.mode.summary,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(height: 14),
                 FilledButton.icon(
                   onPressed: () {
@@ -565,6 +654,17 @@ class _GamePageState extends State<GamePage> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _game.restart();
+                        },
+                        icon: const Icon(Icons.replay),
+                        label: const Text('Restart'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
@@ -655,17 +755,27 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 const Spacer(),
-                _ScoreChip(
-                  count: game.correctMoves,
-                  icon: Icons.check,
-                  tone: _Tone.good,
-                ),
-                const SizedBox(width: 6),
-                _ScoreChip(
-                  count: game.wrongMoves,
-                  icon: Icons.close,
-                  tone: _Tone.bad,
-                ),
+                // Counting mistakes requires saying which moves were
+                // mistakes, so the chips belong to training only.
+                if (game.mode.revealsCorrectness) ...[
+                  _ScoreChip(
+                    count: game.correctMoves,
+                    icon: Icons.check,
+                    tone: _Tone.good,
+                  ),
+                  const SizedBox(width: 6),
+                  _ScoreChip(
+                    count: game.wrongMoves,
+                    icon: Icons.close,
+                    tone: _Tone.bad,
+                  ),
+                ] else
+                  Text(
+                    '${game.remaining} left',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 const SizedBox(width: 12),
                 ValueListenableBuilder<Duration>(
                   valueListenable: game.elapsed,
@@ -720,11 +830,47 @@ class _Header extends StatelessWidget {
                   selected: {game.difficulty},
                   onSelectionChanged: (s) => game.newGame(difficulty: s.first),
                 ),
+                _ModePicker(game: game),
               ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              game.mode.summary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         );
       },
+    );
+  }
+}
+
+/// Switches between training and play.
+class _ModePicker extends StatelessWidget {
+  const _ModePicker({required this.game});
+
+  final GameController game;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<GameMode>(
+      showSelectedIcon: false,
+      segments: [
+        for (final m in GameMode.values)
+          ButtonSegment(
+            value: m,
+            label: Text(m.label),
+            icon: Icon(
+              m == GameMode.training ? Icons.school_outlined : Icons.extension,
+              size: 16,
+            ),
+            tooltip: m.summary,
+          ),
+      ],
+      selected: {game.mode},
+      onSelectionChanged: (s) => game.mode = s.first,
     );
   }
 }

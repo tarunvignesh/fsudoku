@@ -131,6 +131,9 @@ void main() {
       tester,
     ) async {
       final game = await pumpBoard(tester);
+      // Training shows candidates by default; this test is about the digits.
+      game.toggleCandidates();
+      await tester.pumpAndSettle();
 
       final given = game.values.indexWhere((v) => v != 0);
       expect(labelFor(tester, game, given), endsWith('clue'));
@@ -157,6 +160,8 @@ void main() {
 
     testWidgets('pencil marks and candidates are spoken', (tester) async {
       final game = await pumpBoard(tester);
+      game.toggleCandidates(); // start from off, so the toggle is observable
+      await tester.pumpAndSettle();
       final blank = game.values.indexOf(0);
 
       game
