@@ -16,6 +16,7 @@ import '../engine/puzzle.dart';
 import '../engine/variant.dart';
 import '../state/game_controller.dart';
 import '../state/game_mode.dart';
+import '../state/launch_options.dart';
 import '../state/persistence.dart';
 import '../state/settings_controller.dart';
 import 'board/board_view.dart';
@@ -38,6 +39,7 @@ class FSudokuApp extends StatefulWidget {
     this.controller,
     this.settings,
     this.repository,
+    this.launch,
   });
 
   /// An externally supplied game, or null to start a fresh one.
@@ -48,6 +50,9 @@ class FSudokuApp extends StatefulWidget {
 
   /// Where saved games and settings live, or null to use the platform's.
   final GameRepository? repository;
+
+  /// What the launch URL asked for, or null to read it from the platform.
+  final LaunchOptions? launch;
 
   @override
   State<FSudokuApp> createState() => _FSudokuAppState();
@@ -104,6 +109,7 @@ class _FSudokuAppState extends State<FSudokuApp> {
           controller: widget.controller,
           settings: _settings,
           repository: _repository,
+          launch: widget.launch ?? LaunchOptions.fromPlatform(),
         ),
       ),
     );
@@ -113,7 +119,13 @@ class _FSudokuAppState extends State<FSudokuApp> {
 /// The single screen: board, controls and hint explanation.
 class GamePage extends StatefulWidget {
   /// Creates the game page.
-  const GamePage({super.key, this.controller, this.settings, this.repository});
+  const GamePage({
+    super.key,
+    this.controller,
+    this.settings,
+    this.repository,
+    this.launch,
+  });
 
   /// An externally supplied game, or null to start a fresh one.
   final GameController? controller;
@@ -124,6 +136,9 @@ class GamePage extends StatefulWidget {
   /// Where the game is saved, or null for an unsaved session.
   final GameRepository? repository;
 
+  /// What the launch URL asked for, if anything.
+  final LaunchOptions? launch;
+
   @override
   State<GamePage> createState() => _GamePageState();
 }
@@ -131,10 +146,21 @@ class GamePage extends StatefulWidget {
 class _GamePageState extends State<GamePage> {
   late final GameController _game = _restoreGame()..onSolved = _announceWin;
 
-  /// Picks up the saved game, or starts a new one.
+  /// Picks up the saved game, or starts the one the URL asked for.
   GameController _restoreGame() {
     final supplied = widget.controller;
     if (supplied != null) return supplied;
+
+    // A link or home-screen shortcut naming a board wins over whatever was
+    // last played; a plain link resumes it.
+    final launch = widget.launch;
+    if (launch != null && launch.wantsNewGame) {
+      return GameController(
+        variant: launch.variant ?? Variant.nine,
+        difficulty: launch.difficulty ?? Difficulty.gentle,
+        mode: launch.mode ?? GameMode.training,
+      );
+    }
 
     final saved = widget.repository?.loadGame();
     if (saved != null) return GameController.restored(saved);

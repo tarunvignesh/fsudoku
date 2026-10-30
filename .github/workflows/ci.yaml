@@ -31,7 +31,7 @@ jobs:
       # Both web targets must stay buildable: skwasm is the default path and
       # CanvasKit is the fallback for browsers without WasmGC.
       - name: Build web (CanvasKit)
-        run: flutter build web --release --no-wasm-dry-run
+        run: flutter build web --release --no-wasm-dry-run --no-web-resources-cdn
 
       - name: Build web (WasmGC)
-        run: flutter build web --release --wasm
+        run: flutter build web --release --wasm --no-web-resources-cdn

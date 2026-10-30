@@ -76,7 +76,7 @@ class GlyphCache {
         text: TextSpan(
           text: '$digit',
           style: TextStyle(
-            fontFamily: _style?.fontFamily,
+            fontFamily: _style?.fontFamily ?? 'Inter',
             fontSize: _fontSize(role),
             fontWeight: _weight(role),
             color: _colors[role],

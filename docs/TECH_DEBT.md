@@ -17,6 +17,11 @@ for a hosted app that strangers are expected to play.
   board paints, both with cross-origin isolation (multi-threaded) and without
   it (single-threaded). The earlier headless failures were an artefact of
   `--virtual-time-budget`, which starves the workers skwasm needs.
+- **The app was not installable, and fetched its renderer from a CDN.** It is
+  now a PWA with shortcuts, iOS startup images and a service worker of our own
+  — Flutter's is deprecated and registers nothing as of 3.47 — and
+  `--no-web-resources-cdn` keeps the renderer and fonts on our own origin.
+  There are no third-party requests at runtime.
 - **Animations ignored `prefers-reduced-motion`.** All five controllers and
   every implicit animation now collapse to zero when the platform asks.
 - **The board could be read but not scanned.** `R`/`T`/`B`/`M` answer the
@@ -71,10 +76,11 @@ painter directly would avoid the widget rebuild entirely.
   `'?'` into the board, which the model has no state for; a real third state
   would need engine support.
 - No error reporting, so a crash in someone's browser is invisible.
-- The service worker is Flutter's default: it caches, but there is no update
-  prompt, so a returning player may sit on a stale build for a session.
-- `docs/screenshots/` are committed PNGs totalling ~650 KB, already halved and
-  palette-quantised. Easy to forget when adding more.
+- `docs/gifs/` are committed GIFs totalling ~2.9 MB. They are the README's
+  main draw, but they make the clone heavier forever.
+- The service worker's precache list names the engine's output files directly.
+  Fonts are read from Flutter's manifest, so a new typeface needs no edit, but
+  a change to Flutter's output names would need one.
 - The radial menu's arc holds about five actions before items collide; the
   limit is the label width, and it is only documented, not enforced.
 - Contrast is the one thing here that defends itself: the audit iterates

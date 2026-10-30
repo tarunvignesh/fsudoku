@@ -10,6 +10,7 @@ import 'package:fsudoku/engine/solver.dart';
 import 'package:fsudoku/engine/variant.dart';
 import 'package:fsudoku/state/game_controller.dart';
 import 'package:fsudoku/state/game_mode.dart';
+import 'package:fsudoku/state/launch_options.dart';
 import 'package:fsudoku/state/persistence.dart';
 import 'package:fsudoku/state/settings_controller.dart';
 import 'package:fsudoku/state/storage/key_value_store.dart';
@@ -333,6 +334,104 @@ void main() {
           '{"nine/gentle/training": "not a number"}',
         );
       expect(GameRepository(store).loadRecords(), isEmpty);
+    });
+  });
+
+  group('launch options', () {
+    LaunchOptions parse(String query) =>
+        LaunchOptions.fromUri(Uri.parse('https://example.test/$query'));
+
+    test('a plain URL asks for nothing', () {
+      expect(parse('').isEmpty, isTrue);
+      expect(parse('').wantsNewGame, isFalse);
+    });
+
+    test('size, difficulty and mode are read', () {
+      final o = parse('?size=6&difficulty=tricky&mode=play');
+      expect(o.variant, Variant.six);
+      expect(o.difficulty, Difficulty.tricky);
+      expect(o.mode, GameMode.play);
+      expect(o.wantsNewGame, isTrue);
+    });
+
+    test('size accepts the digit or the label', () {
+      expect(parse('?size=4').variant, Variant.four);
+      expect(parse('?size=9x9').variant, Variant.nine);
+    });
+
+    test('casing does not matter', () {
+      expect(parse('?difficulty=TRICKY').difficulty, Difficulty.tricky);
+      expect(parse('?mode=Play').mode, GameMode.play);
+    });
+
+    test('nonsense is ignored rather than rejected', () {
+      // A bad link should open the app, not an error page.
+      final o = parse('?size=42&difficulty=impossible&mode=nope');
+      expect(o.variant, isNull);
+      expect(o.difficulty, isNull);
+      expect(o.mode, isNull);
+      expect(o.isEmpty, isTrue);
+    });
+
+    testWidgets('a shortcut URL beats the saved game', (tester) async {
+      final view = tester.platformDispatcher.views.first;
+      view.physicalSize = const Size(1600, 1000);
+      view.devicePixelRatio = 1;
+      addTearDown(() {
+        view.resetPhysicalSize();
+        view.resetDevicePixelRatio();
+      });
+
+      // Save a 9x9 in progress.
+      final repository = GameRepository(InMemoryStore());
+      final saved = GameController(variant: Variant.nine, random: Random(2));
+      saved
+        ..select(saved.values.indexOf(0))
+        ..enterNote(1);
+      repository.saveGame(saved.snapshot());
+      saved.dispose();
+      expect(repository.loadGame()!.variant, Variant.nine);
+
+      await tester.pumpWidget(
+        FSudokuApp(
+          repository: repository,
+          launch: const LaunchOptions(variant: Variant.four),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The 4x4 the link asked for, not the 9x9 that was saved.
+      expect(find.text('9'), findsNothing, reason: 'a 4x4 has no 9 to enter');
+      expect(find.text('4'), findsWidgets);
+    });
+
+    testWidgets('a plain launch resumes the saved game', (tester) async {
+      final view = tester.platformDispatcher.views.first;
+      view.physicalSize = const Size(1600, 1000);
+      view.devicePixelRatio = 1;
+      addTearDown(() {
+        view.resetPhysicalSize();
+        view.resetDevicePixelRatio();
+      });
+
+      final repository = GameRepository(InMemoryStore());
+      final saved = GameController(variant: Variant.four, random: Random(3));
+      final blank = saved.values.indexOf(0);
+      final digit = saved.puzzle.solution[blank];
+      saved
+        ..select(blank)
+        ..enterAnswer(digit);
+      repository.saveGame(saved.snapshot());
+      saved.dispose();
+
+      await tester.pumpWidget(
+        FSudokuApp(repository: repository, launch: const LaunchOptions()),
+      );
+      await tester.pumpAndSettle();
+
+      // Still a 4x4, and still the one that was part-played.
+      expect(find.text('9'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
 

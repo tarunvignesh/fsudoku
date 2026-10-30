@@ -29,6 +29,11 @@ jobs:
 
       - run: flutter pub get
 
+      # --no-web-resources-cdn matters: by default Flutter fetches the
+      # renderer from www.gstatic.com at runtime even though the build ships
+      # a local copy, which makes the installed app useless offline and adds
+      # a third-party dependency to every load.
+      #
       # Ships the WasmGC target even though Pages cannot set COOP/COEP.
       # Measured: without those headers skwasm still loads and paints, just
       # single-threaded -- and this build is 2.2 MB gzipped against CanvasKit's
@@ -36,7 +41,7 @@ jobs:
       # same build already contains.
       - name: Build
         run: |
-          flutter build web --release --wasm \
+          flutter build web --release --wasm --no-web-resources-cdn \
             --base-href "/${GITHUB_REPOSITORY#*/}/"
 
       - uses: actions/upload-pages-artifact@v3

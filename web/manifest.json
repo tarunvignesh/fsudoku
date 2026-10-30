@@ -1,24 +1,45 @@
 {
+  "id": "/fsudoku/",
   "name": "Sudoku Trainer",
   "short_name": "Sudoku",
+  "description": "Learn Sudoku on 4x4, 6x6 and 9x9 boards, with candidate marks, explained hints and live conflict feedback.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
   "background_color": "#0E1116",
   "theme_color": "#0E1116",
-  "description": "Learn Sudoku on 4x4, 6x6 and 9x9 boards, with candidate marks, explained hints and live conflict feedback.",
-  "orientation": "any",
+  "categories": ["games", "education", "puzzle"],
   "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Quick 4x4",
+      "short_name": "4x4",
+      "description": "A small board to warm up on",
+      "url": "./?size=4",
+      "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "New 9x9",
+      "short_name": "9x9",
+      "description": "A fresh full-size board",
+      "url": "./?size=9",
+      "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "9x9, no help",
+      "short_name": "Play mode",
+      "description": "Only rule breaks are flagged",
+      "url": "./?size=9&mode=play",
+      "icons": [{ "src": "icons/Icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
-    {
-      "src": "icons/Icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/Icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
+    { "src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png" },
     {
       "src": "icons/Icon-maskable-192.png",
       "sizes": "192x192",
@@ -30,6 +51,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "The board with a hint explained"
+    },
+    {
+      "src": "screenshots/narrow.png",
+      "sizes": "540x960",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "The board on a phone"
     }
   ]
 }

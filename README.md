@@ -229,14 +229,18 @@ fractional pixels and the grid renders soft.
 ```bash
 flutter pub get
 flutter run -d chrome          # development
-flutter test                   # 148 tests, ~15s
+flutter test                   # 155 tests, ~15s
 flutter analyze --fatal-infos
 ```
 
 ```bash
-flutter build web --release --wasm            # WasmGC, with a JS fallback
-flutter build web --release --no-wasm-dry-run # CanvasKit only
+flutter build web --release --wasm --no-web-resources-cdn
 ```
+
+`--no-web-resources-cdn` is not optional here. Without it Flutter fetches the
+renderer from `www.gstatic.com` at runtime — and its default font from
+`fonts.gstatic.com` — even though the build ships local copies. That makes an
+installed app useless offline and puts a third-party request on every load.
 
 ### Deploying
 
@@ -264,6 +268,37 @@ carries them for Netlify and Cloudflare Pages. Serve `.wasm` and `.js` with
 Brotli. About 1.5 MB of either payload is the Skia renderer: a framework floor,
 not something the app controls, and it caches after the first visit.
 
+## Installing it
+
+The web build is a proper PWA: a manifest with maskable icons, home-screen
+shortcuts that open straight into a board, iOS startup images for every common
+device size, and a service worker that precaches the shell so it opens with no
+network at all.
+
+| Shortcut | Opens |
+| --- | --- |
+| Quick 4x4 | `?size=4` |
+| New 9x9 | `?size=9` |
+| 9x9, no help | `?size=9&mode=play` |
+
+Those are plain links, so they work pasted anywhere, not just from a
+home-screen icon. `?size=`, `?difficulty=` and `?mode=` are read at launch;
+anything unrecognised is ignored rather than refused. A link naming a board
+starts that board; a plain link resumes whatever you were playing.
+
+The service worker is ours, not Flutter's. As of 3.47 Flutter's own is
+deprecated, no longer registered by the bootstrap, and ships as a stub that
+unregisters itself — a stock build of this version caches nothing and will not
+open offline. Ours precaches the shell explicitly, because under cross-origin
+isolation the renderer runs on web workers whose fetches never pass through a
+service worker, and those are exactly the files whose absence leaves a blank
+page. When a new build is deployed it offers a reload rather than taking one:
+discarding the board someone is looking at would be worse than being a version
+behind.
+
+**Native iOS and Android shells are scaffolded but unbuilt** — neither
+toolchain was available on the machine this was developed on.
+
 ## Status
 
 Playable and feature-complete on the web. Your game survives a reload — board,
@@ -275,10 +310,8 @@ and no database: a game in progress is one or two kilobytes of JSON.
 Nothing on it is red; the heaviest remaining item is simply what Flutter web
 costs to load.
 
-iOS and Android scaffolding is current but **unbuilt** — neither toolchain was
-available on the machine this was developed on. The engine needs no changes to
-get there, and persistence needs only one more implementation of the same
-interface. The application id is `io.github.conatarun.fsudoku`, a neutral
+The engine needs no changes to reach iOS, and persistence needs only one more
+implementation of the same interface. The application id is `io.github.conatarun.fsudoku`, a neutral
 namespace worth changing before any store submission.
 
 ## History

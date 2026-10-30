@@ -429,7 +429,10 @@ ThemeData buildAppTheme(Skin skin, Brightness brightness) {
   return ThemeData(
     colorScheme: scheme,
     brightness: brightness,
-    fontFamily: skin.uiFontFamily,
+    // Falls back to a bundled face, never to Roboto. CanvasKit fetches
+    // Roboto from fonts.gstatic.com when nothing else is named, which is a
+    // third-party request at runtime and makes the app unusable offline.
+    fontFamily: skin.uiFontFamily ?? 'Inter',
     scaffoldBackgroundColor: Color.alphaBlend(
       palette.surface.withValues(alpha: isDark ? 0.55 : 0.5),
       scheme.surface,
